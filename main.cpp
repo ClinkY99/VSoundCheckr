@@ -1,8 +1,11 @@
 #include "Visual/AppBase.h"
+#include "Audio/AudioIOBase.h"
 
-wxIMPLEMENT_APP(MyApp);
+//wxIMPLEMENT_APP(MyApp);
 
-// int main() {
-//
-// }
+int main() {
+    AudioIOBase::init();
+
+
+}
 

@@ -5,11 +5,20 @@
 #ifndef AUDIOIO_H
 #define AUDIOIO_H
 
+#include "AudioIOBase.h"
 
 
-class AudioIO {
+class AudioIOStream {
 
+public:
+    void initializeAudioStream(unsigned int numCaptureChannel, unsigned int numPlaybackChannel, PaStreamCallback CallbackFXN);
+    void startStream();
+    void endStream();
+
+private:
+    PaStream *stream = nullptr;
 };
+
 
 
 
