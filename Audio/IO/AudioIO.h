@@ -92,7 +92,7 @@ public:
     AudioIO();
     ~AudioIO();
 
-    AudioIOStream startStream();
+    AudioIOStream* startStream();
 
     //audio processing functions (while part of stream)
     void audioThread();

@@ -91,8 +91,9 @@ void AudioIO::startAudioThread() {
     mAudioThread = std::thread(&AudioIO::audioThread, std::ref(mKillAudioThread));
 }
 
-AudioIOStream AudioIO::startStream() {
+AudioIOStream* AudioIO::startStream() {
 
+    return nullptr;
 }
 
 

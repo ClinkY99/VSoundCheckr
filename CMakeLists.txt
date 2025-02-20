@@ -12,6 +12,11 @@ add_executable(RecordingSoftwareISP main.cpp
         Visual/AppBase.h
         Audio/Track.cpp
         Audio/Track.h
+        Audio/audioBuffers.cpp
+        Audio/audioBuffers.h
+        MemoryManagement/MemoryX.cpp
+        MemoryManagement/MemoryX.h
+        Audio/SampleFormat.h
 )
 
 
