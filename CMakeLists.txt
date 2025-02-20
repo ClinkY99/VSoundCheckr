@@ -6,12 +6,12 @@ set(CMAKE_CXX_STANDARD 20)
 add_link_options(-Xlinker --allow-multiple-definition)
 
 add_executable(RecordingSoftwareISP main.cpp
-        Audio/AudioIO.cpp
-        Audio/AudioIO.h
+        Audio/IO/AudioIO.cpp
+        Audio/IO/AudioIO.h
         Visual/AppBase.cpp
         Visual/AppBase.h
-        Audio/AudioIOBase.cpp
-        Audio/AudioIOBase.h
+        Audio/Track.cpp
+        Audio/Track.h
 )
 
 
