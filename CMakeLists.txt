@@ -17,6 +17,10 @@ add_executable(RecordingSoftwareISP main.cpp
         MemoryManagement/MemoryX.cpp
         MemoryManagement/MemoryX.h
         Audio/SampleFormat.h
+        Audio/Dither.cpp
+        Audio/Dither.h
+        MemoryManagement/Math/float_cast.h
+        Audio/SampleFormat.cpp
 )
 
 

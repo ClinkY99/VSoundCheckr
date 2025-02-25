@@ -6,6 +6,8 @@
 #define SAMPLEFORMAT_H
 #include <algorithm>
 
+enum DitherType : unsigned;
+
 enum class SampleFormat : unsigned {
     undefinedSample = 0,
     int16Sample = 0x00020001,
@@ -46,7 +48,7 @@ public:
     SampleFormat getEffective() const {return mEffective;}
     SampleFormat getStored() const {return mStored;}
 
-    void updateEffective() {
+    void updateEffective(SampleFormat effective) {
         if (effective > mEffective) {
             mEffective = std::min(effective, mStored);
         }
@@ -106,7 +108,7 @@ public:
         mPtr = 0;
     }
 
-    SamplePtr ptr() const {return mPtr;}
+    samplePtr ptr() const {return mPtr;}
 };
 
 class GrowableSampleBuffer : SampleBuffer {
@@ -132,6 +134,12 @@ public:
 
     using SampleBuffer::ptr;
 };
+
+void InitDithers();
+void ClearSamples(samplePtr dst, SampleFormat format, size_t start, size_t len);
+void ReverseSamples();
+void CopySamples(constSamplePtr src, SampleFormat srcFormat, samplePtr dst, SampleFormat dstFormat, size_t len,DitherType dither, size_t srcStride = 1, size_t dstStride = 1);
+
 
 
 
