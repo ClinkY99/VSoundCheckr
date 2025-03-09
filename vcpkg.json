@@ -47,5 +47,8 @@
   }, {
     "name" : "portaudio",
     "version>=" : "19.7#5"
+  }, {
+    "name" : "sqlite3",
+    "version>=" : "3.48.0"
   } ]
 }

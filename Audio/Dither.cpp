@@ -71,7 +71,7 @@ static inline void DITHER_LOOP(Ditherer dither, State& state,
     const char *s;
     unsigned int i;
     for (i = 0, d = (char*)dst, s = (char*)src; i < len; i++, d+=SAMPLE_SIZE(dstFormat)*dstStride, s+=SAMPLE_SIZE(srcFormat)*srcStride) {
-        store(dither, state, reinterpret_cast<dstType *> (d), load(reinterpret_cast<srcType*>(s)));
+        store(dither, state, reinterpret_cast<dstType *> (d), load((srcType*)s));
     }
 }
 

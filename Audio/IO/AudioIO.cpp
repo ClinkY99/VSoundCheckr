@@ -4,9 +4,16 @@
 
 #include "AudioIO.h"
 
+#include "../../MemoryManagement/Math/float_cast.h"
 #include <cstdio>
+#include <wx/debug.h>
 
-void AudioIOStream::initializeAudioStream(PaStreamParameters inputParams, PaStreamParameters outputParams, int srate, PaStreamCallback CallbackFXN) {
+
+AudioIOStream::AudioIOStream(PaError &err, PaStreamParameters inputParams, PaStreamParameters outputParams, int srate, PaStreamCallback CallbackFXN) {
+    err = initializeAudioStream(inputParams,outputParams,srate,CallbackFXN);
+}
+
+PaError AudioIOStream::initializeAudioStream(PaStreamParameters inputParams, PaStreamParameters outputParams, int srate, PaStreamCallback CallbackFXN) {
     static testUserData data;
 
     PaError err = Pa_OpenStream(
@@ -33,9 +40,13 @@ void AudioIOStream::initializeAudioStream(PaStreamParameters inputParams, PaStre
 
     printf("Pa_OpenDefaultStream returned %d\n", err);
     if (err != paNoError) printf("Error opening audio stream\n");
+
+    return err;
 }
 
+
 void AudioIOStream::startStream() {
+
     Pa_StartStream(mStream);
     printf("Stream started\n");
 }
@@ -50,8 +61,6 @@ int AudioCallback(const void *inputBuffer, void *outputBuffer, unsigned long fra
     auto *data = (testUserData *)userData;
     auto *out = (float *)outputBuffer;
     (void) inputBuffer; /* Prevent unused variable warning. */
-
-
 
     return 0;
 }
@@ -69,8 +78,8 @@ AudioIO::~AudioIO() {
     //Handle Exiting IO
 
     //Kill Stream & callback
-    if (!mAudioStream.getStreamStillRunning()) {
-        mAudioStream.endStream();
+    if (!mAudioStream->getStreamStillRunning()) {
+        mAudioStream->endStream();
     }
 
 
@@ -91,10 +100,95 @@ void AudioIO::startAudioThread() {
     mAudioThread = std::thread(&AudioIO::audioThread, std::ref(mKillAudioThread));
 }
 
-AudioIOStream* AudioIO::startStream() {
-
-    return nullptr;
+int AudioIO::startStream() {
+    return 0;
+}
+void AudioIO::startStreamCleanup(bool bClearBuffersOnly /*=false*/) {
+    mPlaybackBuffers.clear();
+    mCaptureBuffers.clear();
+    if (!bClearBuffersOnly) {
+        //HANDLE ISSUES WITH STREAM HERE
+    }
 }
 
+
+bool AudioIO::AllocateBuffers() {
+
+    BufferTime times = getBufferTimes();
+    auto playbackTime = lrint(times.batchSize.count() * mRate)/mRate;
+
+    mPlaybackSamplesToCopy = playbackTime*mRate;
+
+    mPlaybackBufferSecs = times.RingBufferDelay.count();
+
+    mCaptureBufferSecs = 4.5 + 0.5 * std::min(size_t(16), mNumCaptureChannels);
+    mMinCaptureBufferSecsToCopy = 0.2 + 0.2*std::min(size_t(16), mNumCaptureChannels);
+
+    bool done;
+    do {
+        done = true;
+        try {
+            if (mNumPlaybackChannels>0) {
+                auto bufferLength = std::max((size_t)lrint(mRate*mPlaybackBufferSecs), mHardwarePlaybackLatency*2);
+
+                //make buffer length a multiple of the sample rate
+                bufferLength = mPlaybackSamplesToCopy * (bufferLength+mPlaybackSamplesToCopy-1)/mPlaybackSamplesToCopy;
+
+                //If we cant afford 100 samples crash out
+                if (bufferLength<100||mPlaybackSamplesToCopy<100) {
+                    //SHOW ERROR MESSAGE
+                    wxASSERT(false);
+                    return false;
+                }
+
+                mPlaybackBufferSecs = bufferLength/mRate;
+
+                mPlaybackBuffers.resize(0);
+                mPlaybackBuffers.resize(mNumPlaybackChannels);
+
+                //Generate Buffers
+                std::generate(
+                    mPlaybackBuffers.begin(),
+                    mPlaybackBuffers.end(),
+                    [=] {return std::make_unique<audioBuffer>(floatSample, bufferLength); }
+                );
+
+            }
+            if (mNumCaptureChannels>0) {
+                auto bufferLength = (size_t)lrint(mRate*mCaptureBufferSecs);
+
+                //If we cant afford 100 samples crash out
+                if (bufferLength<100) {
+                    //SHOW ERROR MESSAGE
+                    wxASSERT(false);
+                    return false;
+                }
+
+                mCaptureBuffers.resize(0);
+                mCaptureBuffers.resize(mNumCaptureChannels);
+
+                std::generate(
+                    mCaptureBuffers.begin(),
+                    mCaptureBuffers.end(),
+                    [&] {return std::make_unique<audioBuffer>(mCaptureFormat, bufferLength); }
+                );
+            }
+
+        } catch (std::bad_alloc&) {
+            //Handling Out of memery error, shouldn't happen, therefore just clean everything up and try again
+            done = false;
+
+            startStreamCleanup(true);
+
+            mPlaybackSamplesToCopy /=2;
+            mPlaybackBufferSecs /=2;
+            mCaptureBufferSecs /=2;
+            mMinCaptureBufferSecsToCopy /=2;
+
+        }
+    } while (!done);
+
+    return true;
+}
 
 

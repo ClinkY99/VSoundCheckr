@@ -7,6 +7,9 @@
 
 #include <portaudio.h>
 #include <thread>
+#include <vector>
+
+#include "../audioBuffers.h"
 
 #ifndef __WXMSW__
 #include <pa_win_wasapi.h>
@@ -19,7 +22,7 @@ struct testUserData {
 
 struct audioProcessingUserData {
 
-}
+};
 
 struct audioIoStreamOptions {
     unsigned int mCaptureChannels;
@@ -35,7 +38,23 @@ static int AudioCallback(const void *inputBuffer, void *outputBuffer,  unsigned 
                            PaStreamCallbackFlags statusFlags,
                            void *userData);
 
+using Duration = std::chrono::duration<double>;
+
+struct BufferTime {
+    Duration batchSize;
+    Duration latency;
+    Duration RingBufferDelay;
+};
+static BufferTime getBufferTimes() {
+    using namespace std::chrono;
+    return { 0.05s, 0.05s, 0.25s };
+}
+
 class AudioIOBase {
+protected:
+    double mRate;
+
+
 
 public:
     unsigned int getPlaybackDevIndex();
@@ -49,7 +68,8 @@ public:
 class AudioIOStream {
 
 public:
-    void initializeAudioStream(PaStreamParameters, PaStreamParameters, int,  PaStreamCallback CallbackFXN);
+    AudioIOStream(PaError &err,PaStreamParameters inputParams, PaStreamParameters outputParams, int srate, PaStreamCallback CallbackFXN);
+    PaError initializeAudioStream(PaStreamParameters, PaStreamParameters, int,  PaStreamCallback CallbackFXN);
     void startStream();
     void endStream();
 
@@ -57,7 +77,7 @@ private:
     PaStream *mStream = nullptr;
 
 public:
-    bool getStreamStillRunning();
+    bool getStreamStillRunning(){return false;};
 };
 
 class AudioIoCallback
@@ -68,15 +88,41 @@ protected:
     std::thread mAudioThread;
 
     std::atomic<bool> mKillAudioThread{false};
-public:
-    AudioIoCallback();
-    ~AudioIoCallback();
 
-    void AudioIOCallback();
+    //Audio Settings
+    SampleFormat mCaptureFormat;
+
+    //channels
+    size_t mNumPlaybackChannels;
+    size_t mNumCaptureChannels;
+
+    //buffers
+    using audioBuffers = std::vector<std::unique_ptr<audioBuffer>>;
+
+    audioBuffers mPlaybackBuffers;
+    audioBuffers mCaptureBuffers;
+    //audioBuffer mMaster;
+
+    //buffer Settings
+    double mPlaybackBufferSecs;
+    double mPlaybackSamplesToCopy;
+
+    double mCaptureBufferSecs;
+    double mMinCaptureBufferSecsToCopy;
+
+    size_t mHardwarePlaybackLatency;
+
+
+
+
+public:
+    // AudioIoCallback();
+    // ~AudioIoCallback();
 protected:
     void doPlayback();
     void doInput();
 };
+
 
 class AudioIO
     : public AudioIoCallback{
@@ -85,23 +131,31 @@ class AudioIO
     //also for reading and writing the audio... output buffer should be filled by this
     //output should be handled by callback but input is taxing so maybe threading will be better so i dont delay audio proscessing
 
-    AudioIOStream mAudioStream;
+    AudioIOStream* mAudioStream;
+
 
 public:
   //Init Functions
     AudioIO();
     ~AudioIO();
 
-    AudioIOStream* startStream();
+    int startStream();
+
+    bool createPortAudioStream() {return false;};
+
 
     //audio processing functions (while part of stream)
-    void audioThread();
+    static void audioThread(std::atomic<bool>& finish) {};
 
 private:
 
     bool initPortAudio();
 
     void startAudioThread();
+
+    void startStreamCleanup(bool bClearBuffersOnly = false);
+
+    bool AllocateBuffers();
 
 };
 

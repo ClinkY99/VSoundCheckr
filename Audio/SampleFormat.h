@@ -125,6 +125,8 @@ public:
             Allocate(count, format);
             mCount = count;
         }
+
+        return *this;
     }
 
     void Free() {

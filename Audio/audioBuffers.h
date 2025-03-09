@@ -11,7 +11,7 @@
 #include "SampleFormat.h"
 
 //THIS IS A CIRCULAR BUFFER
-class audioBuffer {
+class audioBuffer{
 
 private:
 
@@ -24,8 +24,6 @@ private:
 
     const SampleFormat mFormat;
     const SampleBuffer mBuffer;
-
-
 
 public:
     audioBuffer(SampleFormat format, size_t size);
