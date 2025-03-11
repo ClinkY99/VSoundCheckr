@@ -274,7 +274,7 @@ void DBConnection::checkpointThread(sqlite3 *db, FilePath fileName) {
          using namespace std::chrono;
 
          do {
-            err = sqlite3_wal_checkpoint_v2(mCheckpointDB, nullptr, SQLITE_CHECKPOINT_PASSIVE, nullptr, nullptr);
+            err = giveup ? SQLITE_OK : sqlite3_wal_checkpoint_v2(mCheckpointDB, nullptr, SQLITE_CHECKPOINT_PASSIVE, nullptr, nullptr);
          } while (err == SQLITE_BUSY && (std::this_thread::sleep_for(1ms),true));
 
       }

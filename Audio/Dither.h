@@ -7,7 +7,6 @@
 
 #include "SampleFormat.h"
 
-
 enum DitherType : unsigned {
     none = 0,
     rectangle = 1,

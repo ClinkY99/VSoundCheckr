@@ -5,15 +5,18 @@
 #ifndef AUDIOIO_H
 #define AUDIOIO_H
 
+#include <memory>
 #include <portaudio.h>
 #include <thread>
 #include <vector>
 
 #include "../audioBuffers.h"
+#include "../../Saving/DBConnection.h"
 
 #ifndef __WXMSW__
 #include <pa_win_wasapi.h>
 #endif
+
 
 struct testUserData {
     float left_phase;
@@ -51,12 +54,18 @@ static BufferTime getBufferTimes() {
 }
 
 class AudioIOBase {
+
+public:
+    static std::shared_ptr<DBConnection> sAudioDB;
+
 protected:
     double mRate;
 
 
 
 public:
+    static void initAudio();
+
     unsigned int getPlaybackDevIndex();
     unsigned int getCaptureDevIndex();
     unsigned int getNumPlaybackChannels();

@@ -4,7 +4,7 @@
 
 #include "SampleBlock.h"
 
-bool SampleBlock::GetSamples(samplePtr dest, SampleFormat destFormat, size_t offset, size_t nSamples) {
+size_t SampleBlock::GetSamples(samplePtr dest, SampleFormat destFormat, size_t offset, size_t nSamples) {
     try{return DoGetSamples(dest, destFormat, offset, nSamples);}
     catch (...) {
         if (true) {

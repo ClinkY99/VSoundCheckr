@@ -23,7 +23,12 @@ void ClearSamples(samplePtr dst, SampleFormat format, size_t start, size_t len) 
 }
 
 void CopySamples(constSamplePtr src, SampleFormat srcFormat, samplePtr dst, SampleFormat dstFormat, size_t len,DitherType dither, size_t srcStride /* =1 */, size_t dstStride /* =1 */) {
-    gDitherAlgorithm.Apply(dither, src, srcFormat, dst, dstFormat,len, srcStride, dstStride);
+    gDitherAlgorithm.Apply(dither, src, srcFormat, dst, dstFormat, len, srcStride, dstStride);
 }
+
+void SamplesToFloat(constSamplePtr src, SampleFormat srcFormat, float* dst, size_t len, size_t srcStride /* =1 */, size_t dstStride /* =1 */) {
+    CopySamples(src, srcFormat, reinterpret_cast<samplePtr>(dst), floatSample, len, none, srcStride, dstStride);
+}
+
 
 

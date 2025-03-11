@@ -6,8 +6,10 @@
 
 #include "../../MemoryManagement/Math/float_cast.h"
 #include <cstdio>
+#include <iostream>
 #include <wx/debug.h>
 
+std::shared_ptr<DBConnection> AudioIOBase::sAudioDB;
 
 AudioIOStream::AudioIOStream(PaError &err, PaStreamParameters inputParams, PaStreamParameters outputParams, int srate, PaStreamCallback CallbackFXN) {
     err = initializeAudioStream(inputParams,outputParams,srate,CallbackFXN);
@@ -63,6 +65,12 @@ int AudioCallback(const void *inputBuffer, void *outputBuffer, unsigned long fra
     (void) inputBuffer; /* Prevent unused variable warning. */
 
     return 0;
+}
+
+
+void AudioIOBase::initAudio() {
+    sAudioDB = std::make_shared<DBConnection>();
+    std::cout<<"test";
 }
 
 

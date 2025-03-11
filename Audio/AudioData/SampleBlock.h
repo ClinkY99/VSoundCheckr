@@ -6,39 +6,41 @@
 #define SAMPLEBLOCK_H
 #include <memory>
 #include <unordered_set>
+#include <vector>
 
 #include "../SampleFormat.h"
 
 using SampleBlockID = long long;
 using SampleBlockIDs = std::unordered_set<SampleBlockID>;
+using BlockSampleView = std::unique_ptr<std::vector<float>>;
 
 struct MaxMinRMS {
      float max = 0;
      float min = 0;
      float RMS = 0;
+
 };
 
 class SampleBlock {
 public:
-     virtual ~SampleBlock() = default;
-
      virtual void lock() = 0;
      virtual bool isSilent() =0;
      virtual SampleBlockID getBlockID() = 0;
-     bool GetSamples(samplePtr dest, SampleFormat destFormat, size_t offset, size_t nSamples);
+     size_t GetSamples(samplePtr dest, SampleFormat destFormat, size_t offset, size_t nSamples);
 
-     virtual bool GetSummary256(float* dest, size_t offset, size_t nFrames);
-     virtual bool GetSummary64k(float* dest, size_t offset, size_t nFrames);
+     virtual bool GetSummary256(float* dest, size_t offset, size_t nFrames)= 0;
+     virtual bool GetSummary64k(float* dest, size_t offset, size_t nFrames) = 0;
 
+     virtual BlockSampleView GetFloatSampleView() = 0;
      //for section of block
      MaxMinRMS GetMaxMinRMS(size_t start, size_t len);
      //for entire block
      MaxMinRMS GetMaxMinRMS();
 
 protected:
-     virtual bool DoGetSamples(samplePtr dest, SampleFormat destFormat, size_t offset, size_t nSamples) = 0;
+     virtual size_t DoGetSamples(samplePtr dest, SampleFormat destFormat, size_t offset, size_t nSamples) = 0;
      virtual MaxMinRMS DoGetMaxMinRMS(size_t start, size_t len) = 0;
-     virtual MaxMinRMS DoGetMaxMinRMS();
+     virtual MaxMinRMS DoGetMaxMinRMS() = 0;
 
 
 };
