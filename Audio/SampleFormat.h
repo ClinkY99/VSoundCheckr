@@ -9,6 +9,7 @@
 #include <algorithm>
 
 enum DitherType : unsigned;
+extern DitherType gLowQualDither,gHighQualDither;
 
 enum class SampleFormat : unsigned {
     undefinedSample = 0,

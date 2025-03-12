@@ -4,6 +4,7 @@
 
 #ifndef SAMPLECOUNT_H
 #define SAMPLECOUNT_H
+#include <algorithm>
 #include <limits>
 #include <cstddef>
 
@@ -42,7 +43,7 @@ public:
 
     long long as_long_long() const { return value; }
 
-    size_t as_size_t() const;
+    size_t as_size_t() const {return value;};
 
     sampleCount &operator += (sampleCount b) { value += b.value; return *this; }
     sampleCount &operator -= (sampleCount b) { value -= b.value; return *this; }
@@ -119,6 +120,9 @@ inline sampleCount operator % (sampleCount a, sampleCount b)
     return sampleCount{ a } %= b;
 }
 
+inline size_t LimitSampleBufferSize(size_t bufferSize, sampleCount limit) {
+    return std::min(sampleCount(bufferSize), std::max(sampleCount(0), limit)).as_size_t();
+}
 
 
 #endif //SAMPLECOUNT_H

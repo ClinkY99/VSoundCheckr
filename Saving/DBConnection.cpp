@@ -4,6 +4,8 @@
 
 #include "DBConnection.h"
 
+#include <iostream>
+
 #define PROJECT_PAGE_SIZE 65536
 
 #define str(a) #a
@@ -130,6 +132,7 @@ sqlite3_stmt* DBConnection::Prepare(statementID id, const char *sql) {
 
    if (err != SQLITE_OK) {
       //FAILED TO PREPARE STATMENT
+      std::cout<< "Err Code"<< sqlite3_errmsg(mDB) << std::endl;
       throw;
    }
 

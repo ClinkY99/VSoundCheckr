@@ -70,9 +70,29 @@ int AudioCallback(const void *inputBuffer, void *outputBuffer, unsigned long fra
 
 void AudioIOBase::initAudio() {
     sAudioDB = std::make_shared<DBConnection>();
-    std::cout<<"test";
+    sAudioDB->open("test.audio");
+    createDB();
 }
 
+void AudioIOBase::createDB() {
+    const char * sql = "CREATE TABLE IF NOT EXISTS sampleBlocks ( "
+                       "blockID INTEGER PRIMARY KEY, "
+                       "sampleformat INTEGER, "
+                       "summin REAL, "
+                       "summax REAL, "
+                       "sumrms REAL, "
+                       "samples BLOB,"
+                       "summary256 BLOB,"
+                       "summary64k BLOB);";
+
+    char* errmsg = nullptr;
+
+    int rc = sqlite3_exec(sAudioDB->DB(), sql, nullptr, nullptr, &errmsg);
+    if (rc) {
+        std::cout<<errmsg<<std::endl;
+        throw;
+    }
+}
 
 AudioIO::AudioIO() {
     if (!initPortAudio()) {

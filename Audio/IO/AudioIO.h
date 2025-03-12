@@ -65,6 +65,7 @@ protected:
 
 public:
     static void initAudio();
+    static void createDB();
 
     unsigned int getPlaybackDevIndex();
     unsigned int getCaptureDevIndex();

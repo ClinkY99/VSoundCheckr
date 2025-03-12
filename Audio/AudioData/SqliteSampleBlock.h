@@ -17,7 +17,6 @@ class SqliteSampleBlockFactory;
 //NumBytes for 256 and 64k summaries
 using Sizes = std::pair<size_t, size_t>;
 
-
 class SqliteSampleBlock
     : public SampleBlock {
 
@@ -58,6 +57,9 @@ public:
     void lock() override;
     bool isSilent() override;
     SampleBlockID getBlockID() override {return mBlockID;}
+    SampleFormat getSampleFormat() override {return mSampleFormat;}
+    size_t getSampleCount() override {return mSampleCount;}
+
 
     bool GetSummary64k(float *dest, size_t offset, size_t nFrames) override;
     bool GetSummary256(float *dest, size_t offset, size_t nFrames) override;
