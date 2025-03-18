@@ -153,9 +153,9 @@ void SqliteSampleBlock::Commit(Sizes sizes) {
         sqlite3_bind_double(stmt, 2, mSumMin) ||
         sqlite3_bind_double(stmt, 3, mSumMax) ||
         sqlite3_bind_double(stmt, 4, mSumRMS) ||
-        sqlite3_bind_blob(stmt, 4, mSamples.get(), mSampleBytes, SQLITE_STATIC) ||
-        sqlite3_bind_blob(stmt, 5, mSummary256.get(), summary256Bytes, SQLITE_STATIC) ||
-        sqlite3_bind_blob(stmt, 6, mSummary64k.get(), summary64kBytes, SQLITE_STATIC))
+        sqlite3_bind_blob(stmt, 5, mSamples.get(), mSampleBytes, SQLITE_STATIC) ||
+        sqlite3_bind_blob(stmt, 6, mSummary256.get(), summary256Bytes, SQLITE_STATIC) ||
+        sqlite3_bind_blob(stmt, 7, mSummary64k.get(), summary64kBytes, SQLITE_STATIC))
         {
         //BINDING FAIlED (replace with log)
         throw;
@@ -461,7 +461,7 @@ size_t SqliteSampleBlock::GetBlob(sqlite3_stmt *stmt, void *dest, SampleFormat d
     size_t BlobBytes = sqlite3_column_bytes(stmt, 0);
 
     srcOffset = std::min(srcOffset, BlobBytes);
-    minBytes = std::max(srcOffset, srcBytes-BlobBytes);
+    minBytes = std::min(srcBytes, BlobBytes-srcOffset);
 
     CopySamples(src +srcOffset, srcFormat, (samplePtr) dest, destFormat, minBytes/SAMPLE_SIZE(srcFormat), none);
 
@@ -471,6 +471,7 @@ size_t SqliteSampleBlock::GetBlob(sqlite3_stmt *stmt, void *dest, SampleFormat d
     }
 
     sqlite3_clear_bindings(stmt);
+
     sqlite3_reset(stmt);
 
     return srcBytes;

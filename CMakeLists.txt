@@ -43,7 +43,6 @@ add_executable(RecordingSoftwareISP main.cpp
         project.h
 )
 
-
 find_package(wxWidgets CONFIG REQUIRED)
 target_link_libraries(RecordingSoftwareISP PRIVATE wx::core wx::base)
 

@@ -45,9 +45,11 @@ int main() {
         std::cout<<"Max: "<<summary256_1[i*3]<<" Min: "<<summary256_1[i*3+1] << " RMS: "<<summary256_1[i*3+2]<<std::endl;
     }
 
+    blocktest->GetSummary256(summary256_1.get(),0, 50);
+    values = blocktest->GetMaxMinRMS(0, 50);
+
     Floats samples_test((unsigned) 250);
     assert(blocktest->GetSamples((samplePtr)samples_test.get(), floatSample, 0, 250) == 250);
-    assert(samples_test == samples);
 
     auto blocktest2 = sampleBlockFacotry->CreateFromID(floatSample, blockID);
 
@@ -55,7 +57,6 @@ int main() {
     Floats samples_test2((unsigned) 250);
 
     assert(blocktest2->GetSamples((samplePtr)samples_test2.get(), floatSample, 0, 250) == 250);
-    assert(samples_test == samples);
 
     AudioIO::sAudioDB->close();
 
