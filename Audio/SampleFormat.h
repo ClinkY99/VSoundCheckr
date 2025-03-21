@@ -142,7 +142,7 @@ public:
 
 void InitDithers();
 void ClearSamples(samplePtr dst, SampleFormat format, size_t start, size_t len);
-void ReverseSamples();
+void ReverseSamples(samplePtr dst, SampleFormat format, size_t start, size_t len);
 void CopySamples(constSamplePtr src, SampleFormat srcFormat, samplePtr dst, SampleFormat dstFormat, size_t len,DitherType dither, size_t srcStride = 1, size_t dstStride = 1);
 void SamplesToFloat(constSamplePtr src, SampleFormat srcFormat, float* dst, size_t len, size_t srcStride = 1, size_t dstStride = 1);
 

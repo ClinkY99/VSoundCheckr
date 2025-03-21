@@ -66,6 +66,20 @@ public:
     }
 };
 
+// Construct this from any copyable function object, such as a lambda
+template <typename F>
+struct Finally {
+    Finally(F f) : clean( f ) {}
+    ~Finally() { clean(); }
+    F clean;
+};
+
+template <typename F>
+[[nodiscard]] Finally<F> finally (F f)
+{
+    return Finally<F>(f);
+}
+
 using Floats = ArrayOf<float>;
 
 

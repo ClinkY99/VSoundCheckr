@@ -8,12 +8,11 @@
 #include <format>
 #include <regex>
 
-bool PlaybackSequence::GetFloats(size_t channel, size_t nBuffers, float *const buffers[], sampleCount count, size_t len, bool backwards) {
-    auto castBuffers = reinterpret_cast<const samplePtr*>(buffers);
-    auto result = doGet(channel, nBuffers, castBuffers, floatSample, count, len, backwards);
+bool PlaybackSequence::GetFloats(size_t channel, samplePtr buffer, sampleCount start, size_t len, bool backwards) const{
+    auto result = doGet(channel, buffer, floatSample, start, len, backwards);
 
     //if get fails empty buffer.
-    if (!result) while (nBuffers--) ClearSamples(castBuffers[nBuffers], floatSample, 0, len);
+    if (!result) ClearSamples(buffer, floatSample, 0, len);
 
     return result;
 }

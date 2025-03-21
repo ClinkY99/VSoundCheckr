@@ -41,6 +41,10 @@ add_executable(RecordingSoftwareISP main.cpp
         Saving/DBConnection.h
         project.cpp
         project.h
+        Audio/IO/PlaybackSchedules.cpp
+        Audio/IO/PlaybackSchedules.h
+        Audio/IO/Resample.cpp
+        Audio/IO/Resample.h
 )
 
 find_package(wxWidgets CONFIG REQUIRED)
@@ -51,4 +55,17 @@ target_link_libraries(RecordingSoftwareISP PRIVATE portaudio_static)
 
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
 target_link_libraries(RecordingSoftwareISP PRIVATE unofficial::sqlite3::sqlite3)
+
+# Add include directories for soxr
+target_include_directories(RecordingSoftwareISP PRIVATE
+        ${CMAKE_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/include
+)
+
+# Add library directories for soxr
+target_link_directories(RecordingSoftwareISP PRIVATE
+        ${CMAKE_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib
+)
+
+# Link the soxr library
+target_link_libraries(RecordingSoftwareISP PRIVATE ${CMAKE_SOURCE_DIR}/cmake-build-debug/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib/libsoxr.a)
 

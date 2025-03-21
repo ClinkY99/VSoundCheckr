@@ -24,11 +24,13 @@ void Sequence::Flush() {
     if (mAppendBufferLen >0) {
         DoAppend(mAppendBuffer.ptr(), mAppendEffectiveFormat, mAppendBufferLen);
         mSampleFormats.updateEffective(mAppendEffectiveFormat);
+
+        mAppendBufferLen = 0;
+        mAppendBuffer.Free();
+        mAppendEffectiveFormat =narrowestSampleFormat;
     }
 
-    mAppendBufferLen = 0;
-    mAppendBuffer.Free();
-    mAppendEffectiveFormat =narrowestSampleFormat;
+
 }
 
 

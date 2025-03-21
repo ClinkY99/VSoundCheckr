@@ -60,6 +60,9 @@ public:
     int FindBlock(sampleCount pos);
     bool getSamples(samplePtr dst, SampleFormat dstFormat, sampleCount start, size_t nSamples);
 
+    size_t GetAppendBufferLen() const {return mAppendBufferLen;}
+    sampleCount GetSampleCount() const {return mSampleCount;}
+
 private:
     void AppendBlocks(BlockArray& additionalBlocks, bool replaceLast, sampleCount numSamples);
 

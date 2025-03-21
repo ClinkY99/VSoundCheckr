@@ -10,7 +10,10 @@
 #include <thread>
 #include <vector>
 
+#include "PlaybackSchedules.h"
+#include "Resample.h"
 #include "../audioBuffers.h"
+#include "../../Playback/Sequences/AudioIOSequences.h"
 #include "../../Saving/DBConnection.h"
 
 #ifndef __WXMSW__
@@ -41,36 +44,34 @@ static int AudioCallback(const void *inputBuffer, void *outputBuffer,  unsigned 
                            PaStreamCallbackFlags statusFlags,
                            void *userData);
 
-using Duration = std::chrono::duration<double>;
+void ClampBuffer(float* pBuffer, unsigned long len);
 
-struct BufferTime {
-    Duration batchSize;
-    Duration latency;
-    Duration RingBufferDelay;
-};
-static BufferTime getBufferTimes() {
-    using namespace std::chrono;
-    return { 0.05s, 0.05s, 0.25s };
-}
+using Duration = std::chrono::duration<double>;
 
 class AudioIOBase {
 
 public:
     static std::shared_ptr<DBConnection> sAudioDB;
+    static std::unique_ptr<AudioIOBase> ugAudioIO;
 
 protected:
     double mRate;
-
-
 
 public:
     static void initAudio();
     static void createDB();
 
+    bool isMonitoring() {return false;}
+
     unsigned int getPlaybackDevIndex();
     unsigned int getCaptureDevIndex();
     unsigned int getNumPlaybackChannels();
     unsigned int getNumCaptureChannels();
+
+//Static Member Functions
+public:
+    static AudioIOBase* Get() {return ugAudioIO.get();}
+
 };
 
 
@@ -102,35 +103,85 @@ protected:
     //Audio Settings
     SampleFormat mCaptureFormat;
 
+    int mCallbackReturn;
+
+    unsigned long mMaxFramesOutput;
+
     //channels
     size_t mNumPlaybackChannels;
+    constPlayableSequences mPlayableSequences;
+    PlaybackSchedule mPlaybackShchedule;
+
+    int mbHasSoloSequences;
+
     size_t mNumCaptureChannels;
+    recordingSequences mRecordingSequences;
+    RecordingSchedule mRecordingSchedule;
+
+    //AudioThread Settings
+    std::atomic<bool> mAudioThreadSequenceBufferExchangeActive {false};
+    std::atomic<bool> mAudioThreadShouldSequenceBufferExchangeOnce {false};
+    std::atomic<bool> mAudioThreadSequenceBufferExchangeLoopRunning {false};
 
     //buffers
     using audioBuffers = std::vector<std::unique_ptr<audioBuffer>>;
 
     audioBuffers mPlaybackBuffers;
     audioBuffers mCaptureBuffers;
+    std::vector<std::vector<float>> mProcessingBuffers;
+
+    size_t mLostSamples;
     //audioBuffer mMaster;
 
     //buffer Settings
     double mPlaybackBufferSecs;
-    double mPlaybackSamplesToCopy;
+    size_t mPlaybackSamplesToCopy;
 
     double mCaptureBufferSecs;
     double mMinCaptureBufferSecsToCopy;
 
     size_t mHardwarePlaybackLatency;
 
+    //Resampling Stuff??
+    double mFactor;
+    std::vector<std::unique_ptr<Resample>> mResample;
+
+    //State Stuff
+    std::atomic<bool> mPaused{false};
+    std::atomic<bool> mRecording{false};
+    std::atomic<bool> mPlayback{false};
 
 
 
 public:
     // AudioIoCallback();
     // ~AudioIoCallback();
+
+    bool SequenceShouldBeSilent(const PlaybackSequence &ps);
+    int AudioCallback(constSamplePtr inputBuffer, float* outputBuffer,  unsigned long framesPerBuffer,
+                           const PaStreamCallbackTimeInfo* timeInfo,
+                           PaStreamCallbackFlags statusFlags,
+                           void *userData);
+    void CallbackCompletion(int& callbackReturn, unsigned long len);
+
+    void UpdateTimePosition(unsigned long framesPerBuffer);
+
+    void FillOutputBuffers(float* outputFloats, unsigned long framesPerBuffer);
+    void DrainInputBuffers(constSamplePtr inputBuffer, unsigned long framesPerBuffer, float* tempFloats);
+
+
+    unsigned CountSoloSequences();
+
+
+    bool isPaused() const {return mPaused.load(std::memory_order_relaxed);}
+
 protected:
     void doPlayback();
     void doInput();
+
+    static size_t MinValues(const audioBuffers &buffers, size_t(audioBuffer::*pmf)() const);
+
+    size_t CommonlyReadyPlayback();
 };
 
 
@@ -143,6 +194,8 @@ class AudioIO
 
     AudioIOStream* mAudioStream;
 
+    size_t mPlaybackQueueMinimum;
+
 
 public:
   //Init Functions
@@ -151,11 +204,14 @@ public:
 
     int startStream();
 
+    bool isStreamRunning() {return mAudioStream->getStreamStillRunning();};
+
     bool createPortAudioStream() {return false;};
 
-
     //audio processing functions (while part of stream)
-    static void audioThread(std::atomic<bool>& finish) {};
+    static void audioThread(std::atomic<bool>& finish);
+
+    void sequenceBufferExchange();
 
 private:
 
@@ -165,7 +221,25 @@ private:
 
     void startStreamCleanup(bool bClearBuffersOnly = false);
 
-    bool AllocateBuffers();
+    bool AllocateBuffers(double sampleRate);
+
+    size_t GetCommonlyAvailCapture();
+    size_t GetCommonlyFreePlayback();
+    size_t GetCommonlyWrittenForPlayback();
+
+    //Buffer Exchange
+    void DrainRecordBuffers();
+    void FillPlayBuffers();
+    bool ProcessPlaybackSlices(size_t avail);
+
+    sampleCount getWritePos();
+
+//Static Member Functions
+public:
+    static void Init();
+    static void DeInit();
+
+    static AudioIO* Get() {return static_cast<AudioIO*>(AudioIOBase::Get());}
 
 };
 
