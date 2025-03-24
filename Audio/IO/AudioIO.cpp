@@ -39,7 +39,7 @@ PaError AudioIOStream::initializeAudioStream(PaStreamParameters *inputParams, Pa
         inputParams,
         outputParams,
         srate,
-        500,
+        paFramesPerBufferUnspecified,
         paNoFlag,
         CallbackFXN,
         &data);

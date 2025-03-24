@@ -3,9 +3,6 @@
   "version-string" : "1.0.0",
   "builtin-baseline" : "cf035d9916a0a23042b41fcae7ee0386d245af08",
   "dependencies" : [ {
-    "name" : "asiosdk",
-    "version>=" : "2.3.3#7"
-  }, {
     "name" : "egl-registry",
     "version>=" : "2024-01-25"
   }, {

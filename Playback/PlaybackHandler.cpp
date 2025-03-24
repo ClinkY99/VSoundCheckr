@@ -5,7 +5,6 @@
 #include "PlaybackHandler.h"
 
 #include <iostream>
-#include <bits/fs_fwd.h>
 
 using namespace std;
 
@@ -319,7 +318,6 @@ std::string PlaybackHandler::buildFileName() {
     strftime(buf, sizeof(buf), "%Y-%m-%d.%H-%M", &tstruct);
 
     string fileName = "../tmp/";
-    mkdir(fileName.c_str());
     fileName += "Unsaved Session ";
     fileName += buf;
     fileName += ".audioUnsaved";

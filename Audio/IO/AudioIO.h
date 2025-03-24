@@ -17,9 +17,7 @@
 #include "../../Playback/Sequences/AudioIOSequences.h"
 #include "../../Saving/DBConnection.h"
 
-#ifndef __WXMSW__
-#include <pa_win_wasapi.h>
-#endif
+
 
 
 struct testUserData {
