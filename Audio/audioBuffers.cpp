@@ -43,7 +43,7 @@ size_t audioBuffer::Get(samplePtr buffer, SampleFormat format, size_t samples) {
     size_t copied = 0;
 
     while (samples) {
-        auto block = std::min(samples, mBufferSize-end);
+        auto block = std::min(samples, mBufferSize-start);
 
         CopySamples(mBuffer.ptr() + start*SAMPLE_SIZE(format), mFormat, dest, format, block, DitherType::none);
 

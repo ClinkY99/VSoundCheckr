@@ -54,7 +54,7 @@ bool Sequence::Append(constSamplePtr src, SampleFormat srcFormat, size_t len, si
 
             //Finish up the append
             result = true;
-            memmove(mAppendBuffer.ptr(), mAppendBuffer.ptr()+blockSize*SAMPLE_SIZE(seqFormat), mAppendBufferLen-blockSize*SAMPLE_SIZE(seqFormat));
+            memmove(mAppendBuffer.ptr(), mAppendBuffer.ptr()+blockSize*SAMPLE_SIZE(seqFormat), (mAppendBufferLen-blockSize)*SAMPLE_SIZE(seqFormat));
 
             mAppendBufferLen -= blockSize;
             blockSize = GetIdealAppendLength();
