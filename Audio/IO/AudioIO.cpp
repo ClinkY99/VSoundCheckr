@@ -433,7 +433,7 @@ bool AudioIO::createPortAudioStream(const audioIoStreamOptions &options) {
     PaWasapiStreamInfo wasapiStreamInfo {};
 #endif
 
-    auto latencyDuration = 100;
+    auto latencyDuration = 100.0;
 
     if (mNumPlaybackChannels > 0) {
         usePlayback = true;

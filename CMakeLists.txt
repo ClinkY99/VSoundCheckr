@@ -3,9 +3,9 @@ project(RecordingSoftwareISP)
 
 set(CMAKE_CXX_STANDARD 20)
 
-#add_link_options(-Xlinker --allow-multiple-definition)
+add_link_options(-Xlinker --allow-multiple-definition)
 
-#add_definitions(-DPA_USE_ASIO=1)
+add_definitions(-DPA_USE_ASIO=1)
 
 add_executable(RecordingSoftwareISP main.cpp
         Audio/IO/AudioIO.cpp
