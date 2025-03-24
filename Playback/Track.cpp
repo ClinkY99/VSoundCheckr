@@ -6,6 +6,8 @@
 
 #include <wx/debug.h>
 
+#include "PlaybackHandler.h"
+
 
 bool Track::append(size_t channel, constSamplePtr buffer, SampleFormat format, size_t len, unsigned int stride, SampleFormat effectiveFormat) {
     wxASSERT(channel < NChannels());
@@ -47,5 +49,14 @@ bool Track::doGet(size_t channel, samplePtr buffer, SampleFormat format, sampleC
 
     return result;
 }
+
+void Track::updateSequences() {
+    mSequences.clear();
+    mSequences.resize(NChannels());
+    for (int i = 0; i < NChannels(); ++i) {
+        mSequences[i] = std::make_unique<Sequence>(std::make_unique<SqliteSampleBlockFactory>(), SampleFormats(floatSample, floatSample));
+    }
+}
+
 
 

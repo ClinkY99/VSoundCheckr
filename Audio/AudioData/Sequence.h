@@ -33,15 +33,15 @@ class Sequence {
     SampleFormats mSampleFormats;
 
     SampleBuffer mAppendBuffer;
-    size_t mAppendBufferLen;
-    SampleFormat mAppendEffectiveFormat;
+    size_t mAppendBufferLen = 0;
+    SampleFormat mAppendEffectiveFormat = floatSample;
 
     BlockArray mBlocks;
     std::atomic<size_t> mBlockCount;
     sampleCount mSampleCount;
 
-    size_t mMinSamples;
-    size_t mMaxSamples;
+    size_t mMinSamples = 0;
+    size_t mMaxSamples = 0;
 
     // STATIC MEMBERS
     static size_t sHardDiskBlockSize;

@@ -14,10 +14,10 @@ class Track
     : public RecordingSequence
     , public PlaybackSequence {
 
-    int mInDevice;
-    int mOutDevice;
+    int mFirstChannelNumIn = -1;
+    int mFirstChannelNumOut = -1;
 
-    int mNumChannels;
+    int mNumChannels = 1;
 
     double mRate;
     SampleFormat mFormat;
@@ -28,15 +28,25 @@ class Track
     std::vector<std::unique_ptr<Sequence>> mSequences;
 
 public:
-    Track();
+    Track(double rate, SampleFormat format)
+        :mRate(rate), mFormat(format), mSolo(false), mMute(false) {
+        updateSequences();
+    }
 
-    void changeInDevice(int) {};
-    void changeOutDevice(int) {};
-    void changeNumChannels(int) {};
+    void changeInChannel(int channelNum) {mFirstChannelNumIn = channelNum;}
+    void changeOutChannel(int channelNum) {mFirstChannelNumOut = channelNum;}
+
+    void changeTrackType(AudioGraph::ChannelType newType) {mNumChannels = newType+1; updateSequences();}
+
+    void setRate(double rate) {mRate = rate;} ;
 
     //overrides
     size_t NChannels() const override {return mNumChannels;}
+    AudioGraph::ChannelType getChannelType() const override {return mNumChannels>1 ? AudioGraph::SterioChannel : AudioGraph::MonoChannel;}
+    int GetFirstChannelIN() const override {return mFirstChannelNumIn;}
+    int GetFirstChannelOut() const override {return mFirstChannelNumOut;}
     double GetRate() const override {return mRate;}
+    bool isValid() const override {return mFirstChannelNumIn >=0 && mFirstChannelNumOut>=0;}
 
     //Recording specific Sequence Overrides
     SampleFormat GetSampleFormat() const override {return mFormat;}
@@ -51,7 +61,10 @@ public:
 
 private:
     size_t GetGreatestAppendBufferLen() const;
+    void updateSequences();
 };
+
+using Tracks = std::vector<std::shared_ptr<Track>>;
 
 
 

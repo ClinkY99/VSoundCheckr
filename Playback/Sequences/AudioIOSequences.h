@@ -19,6 +19,7 @@ struct PlaybackSequence : AudioGraph::Channel {
     bool GetFloats(size_t channel, samplePtr buffer, sampleCount start, size_t len, bool backwards = false) const;
 
     virtual size_t NChannels() const = 0;
+    virtual int GetFirstChannelOut() const = 0;
 
     virtual double GetRate() const= 0;
 
@@ -36,8 +37,10 @@ struct RecordingSequence {
 
     virtual SampleFormat GetSampleFormat() const = 0;
     virtual double GetRate() const = 0;
+    virtual bool isValid() const = 0;
 
     virtual size_t NChannels() const = 0;
+    virtual int GetFirstChannelIN() const= 0;
 
     virtual bool append(size_t channel, constSamplePtr buffer, SampleFormat format, size_t len, unsigned int stride, SampleFormat effectiveFormat) = 0;
 

@@ -2,11 +2,10 @@
   "name" : "recordingsoftwareisp",
   "version-string" : "1.0.0",
   "builtin-baseline" : "cf035d9916a0a23042b41fcae7ee0386d245af08",
-  "dependencies" : [
-    {
-      "name" : "asiosdk",
-      "version>=" : "2.3.3#7"
-    },{
+  "dependencies" : [ {
+    "name" : "asiosdk",
+    "version>=" : "2.3.3#7"
+  }, {
     "name" : "egl-registry",
     "version>=" : "2024-01-25"
   }, {
@@ -49,14 +48,13 @@
     "name" : "zlib",
     "version>=" : "1.3.1"
   }, {
-    "name" : "portaudio",
-    "version>=" : "19.7#5"
-  }, {
     "name" : "sqlite3",
     "version>=" : "3.48.0"
-  },
-    {
-      "name": "soxr",
-      "version>=": "0.1.3#8"
-    } ]
+  }, {
+    "name" : "soxr",
+    "version>=" : "0.1.3#8"
+  }, {
+    "name" : "portaudio",
+    "version>=" : "19.7#6"
+  } ]
 }

@@ -115,7 +115,7 @@ int DBConnection::openStepByStep(const FilePath fileName) {
 }
 
 sqlite3_stmt* DBConnection::Prepare(statementID id, const char *sql) {
-   std::lock_guard<std::mutex> guard(mStatementMutex);
+   std::lock_guard guard(mStatementMutex);
 
    int err;
 
@@ -242,7 +242,7 @@ int DBConnection::setPageSize(const char *schema) {
 int DBConnection::checkpointHook(void *data, sqlite3 *db, const char *schema, int pages) {
    DBConnection* that = static_cast<DBConnection*>(data);
 
-   std::lock_guard<std::mutex> guard(that->mStatementMutex);
+   std::lock_guard<std::mutex> guard(that->mCheckpointMutex);
    that->mCheckpointPending = true;
    that->mCheckpointCV.notify_one();
 

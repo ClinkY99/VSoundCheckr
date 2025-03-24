@@ -13,13 +13,12 @@ struct audioIoStreamOptions;
 constexpr size_t TimeQueueGrainSize = 2000;
 
 struct RecordingSchedule {
-    double mPreRoll{};
     double mLatencyCorrection{}; // negative value usually
     double mDuration{};
     double mPosition{};
     bool mLatencyCorrected{};
 
-    double TotalCorrection() const { return mLatencyCorrection - mPreRoll; }
+    double TotalCorrection() const { return mLatencyCorrection; }
     double ToConsume() const;
     double Consumed() const;
     double ToDiscard() const;
@@ -87,9 +86,7 @@ struct PlaybackSchedule {
     double mCurrentTime;
     std::atomic<double> mTime;
 
-
-
-    std::unique_ptr<PlaybackPolicy> mpPlaybackPolicy;
+    std::unique_ptr<PlaybackPolicy> mpPlaybackPolicy = std::make_unique<PlaybackPolicy>();
 
     class TimeQueue {
         double mLastTime {};

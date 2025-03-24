@@ -89,11 +89,9 @@ const PlaybackPolicy &PlaybackSchedule::GetPolicy() const {
 
 void PlaybackSchedule::Init(double t0, double t1, const RecordingSchedule *pRecordingSchedule) {
     mpPlaybackPolicy.reset();
+    mpPlaybackPolicy = std::make_unique<PlaybackPolicy>();
 
     mT0 = t0;
-    if (pRecordingSchedule) {
-        mT0 -= pRecordingSchedule->mPreRoll;
-    }
 
     mT1 = t1;
     if (pRecordingSchedule) {

@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_link_options(-Xlinker --allow-multiple-definition)
 
+add_definitions(-DPA_USE_ASIO=1)
+
 add_executable(RecordingSoftwareISP main.cpp
         Audio/IO/AudioIO.cpp
         Audio/IO/AudioIO.h
@@ -45,6 +47,8 @@ add_executable(RecordingSoftwareISP main.cpp
         Audio/IO/PlaybackSchedules.h
         Audio/IO/Resample.cpp
         Audio/IO/Resample.h
+        Playback/PlaybackHandler.cpp
+        Playback/PlaybackHandler.h
 )
 
 find_package(wxWidgets CONFIG REQUIRED)
@@ -68,4 +72,3 @@ target_link_directories(RecordingSoftwareISP PRIVATE
 
 # Link the soxr library
 target_link_libraries(RecordingSoftwareISP PRIVATE ${CMAKE_SOURCE_DIR}/cmake-build-debug/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib/libsoxr.a)
-

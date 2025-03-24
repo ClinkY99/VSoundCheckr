@@ -93,7 +93,9 @@ SqliteSampleBlock::~SqliteSampleBlock() {
 }
 
 void SqliteSampleBlock::SetSamples(constSamplePtr src, SampleFormat srcFormat, size_t numSamples) {
+
     auto sizes = SetSizes(numSamples, srcFormat);
+
     mSamples.Reinit(mSampleBytes);
 
     memcpy(mSamples.get(), src, numSamples*SAMPLE_SIZE(srcFormat));

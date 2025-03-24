@@ -11,25 +11,35 @@
 #include <wx/debug.h>
 #include <wx/wxcrtvararg.h>
 
+#ifdef __WXMSW__
+    #include <pa_win_wasapi.h>
+#endif
+
+
 std::shared_ptr<DBConnection> AudioIOBase::sAudioDB;
 std::unique_ptr<AudioIOBase> AudioIOBase::ugAudioIO;
 
 #define stackAllocate(T, count) static_cast<T*>(alloca(count * sizeof(T)))
 
 
-AudioIOStream::AudioIOStream(PaError &err, PaStreamParameters inputParams, PaStreamParameters outputParams, int srate, PaStreamCallback CallbackFXN) {
+AudioIOStream::AudioIOStream(PaError &err, PaStreamParameters *inputParams, PaStreamParameters *outputParams, int srate, PaStreamCallback CallbackFXN) {
     err = initializeAudioStream(inputParams,outputParams,srate,CallbackFXN);
 }
 
-PaError AudioIOStream::initializeAudioStream(PaStreamParameters inputParams, PaStreamParameters outputParams, int srate, PaStreamCallback CallbackFXN) {
+AudioIOStream::~AudioIOStream() {
+    Pa_CloseStream(mStream);
+}
+
+
+PaError AudioIOStream::initializeAudioStream(PaStreamParameters *inputParams, PaStreamParameters *outputParams, int srate, PaStreamCallback CallbackFXN) {
     static testUserData data;
 
     PaError err = Pa_OpenStream(
         &mStream,
-        &inputParams,
-        &outputParams,
+        inputParams,
+        outputParams,
         srate,
-        paFramesPerBufferUnspecified,
+        500,
         paNoFlag,
         CallbackFXN,
         &data);
@@ -45,18 +55,14 @@ PaError AudioIOStream::initializeAudioStream(PaStreamParameters inputParams, PaS
     //      &data
     //  );
 
-
-    printf("Pa_OpenDefaultStream returned %d\n", err);
-    if (err != paNoError) printf("Error opening audio stream\n");
+    if (err != paNoError) std::cout<<"Error opening audio stream: "<< Pa_GetErrorText(err)<<std::endl; ;
 
     return err;
 }
 
 
-void AudioIOStream::startStream() {
-
-    Pa_StartStream(mStream);
-    printf("Stream started\n");
+PaError AudioIOStream::startStream() {
+    return Pa_StartStream(mStream);
 }
 
 void AudioIOStream::endStream() {
@@ -64,46 +70,25 @@ void AudioIOStream::endStream() {
     printf("Stream ended\n");
 }
 
-int AudioCallback(const void *inputBuffer, void *outputBuffer, unsigned long framesPerBuffer, const PaStreamCallbackTimeInfo *timeInfo, PaStreamCallbackFlags statusFlags, void *userData) {
-    /* Cast data passed through stream to our structure. */
-    auto *data = (testUserData *)userData;
-    auto *out = (float *)outputBuffer;
-    (void) inputBuffer; /* Prevent unused variable warning. */
+void AudioIOStream::abortStream() {
+    Pa_AbortStream(mStream);
+}
 
-    return 0;
+void AudioIOStream::PrintSFormat() {
+    auto streamInfo = Pa_GetStreamInfo(mStream);
+
+    std::cout<<streamInfo->sampleRate<<std::endl;
+}
+
+
+int AudioCallback(const void *inputBuffer, void *outputBuffer, unsigned long framesPerBuffer, const PaStreamCallbackTimeInfo *timeInfo, PaStreamCallbackFlags statusFlags, void *userData) {
+    auto gAudioIO = AudioIO::Get();
+    return gAudioIO->AudioIOCallback((constSamplePtr)inputBuffer, (float*) outputBuffer, framesPerBuffer, timeInfo, statusFlags, userData);
 }
 
 void ClampBuffer(float *pBuffer, unsigned long len) {
     for (unsigned long i = 0; i < len; i++) {
         pBuffer[i] = std::clamp(pBuffer[i], -1.0f, 1.0f);
-    }
-}
-
-
-
-void AudioIOBase::initAudio() {
-    sAudioDB = std::make_shared<DBConnection>();
-    sAudioDB->open("test.audio");
-    createDB();
-}
-
-void AudioIOBase::createDB() {
-    const char * sql = "CREATE TABLE IF NOT EXISTS sampleBlocks ( "
-                       "blockID INTEGER PRIMARY KEY, "
-                       "sampleformat INTEGER, "
-                       "summin REAL, "
-                       "summax REAL, "
-                       "sumrms REAL, "
-                       "samples BLOB,"
-                       "summary256 BLOB,"
-                       "summary64k BLOB);";
-
-    char* errmsg = nullptr;
-
-    int rc = sqlite3_exec(sAudioDB->DB(), sql, nullptr, nullptr, &errmsg);
-    if (rc) {
-        std::cout<<errmsg<<std::endl;
-        throw;
     }
 }
 
@@ -127,7 +112,7 @@ bool AudioIoCallback::SequenceShouldBeSilent(const PlaybackSequence &ps) {
     return !ps.isSolo() && (mbHasSoloSequences || ps.isMute());
 }
 
-int AudioIoCallback::AudioCallback(constSamplePtr inputBuffer, float* outputBuffer,  unsigned long framesPerBuffer,
+int AudioIoCallback::AudioIOCallback(constSamplePtr inputBuffer, float* outputBuffer,  unsigned long framesPerBuffer,
                            const PaStreamCallbackTimeInfo* timeInfo,
                            PaStreamCallbackFlags statusFlags,
                            void *userData) {
@@ -217,18 +202,19 @@ void AudioIoCallback::FillOutputBuffers(float* outputFloats, unsigned long frame
 void AudioIoCallback::DrainInputBuffers(constSamplePtr inputBuffer, unsigned long framesPerBuffer, float* tempFloats) {
     const auto numCaptureChannels = mNumCaptureChannels;
 
-    if (!inputBuffer || numCaptureChannels) {
+    if (!inputBuffer || numCaptureChannels == 0) {
         return;
     }
 
-    //If there is no playback sequence this wont get checked so do it here
-    if (mPlaybackShchedule.GetPolicy().Done(mPlaybackShchedule, 0)) {
-        mCallbackReturn = paContinue;
-    }
+    //Note: this shouldnt be needed because uncapped recordings?
+    // If there is no playback sequence this wont get checked so do it here
+    // if (mPlaybackShchedule.GetPolicy().Done(mPlaybackShchedule, 0)) {
+    //     mCallbackReturn = paComplete;
+    // }
 
     size_t len = framesPerBuffer;
 
-    for (unsigned i = 0; i < numCaptureChannels; ++i) {
+    for (unsigned i = 0; i < mCaptureBuffers.size(); ++i) {
         len = std::min(len, mCaptureBuffers[i]->availForPut());
     }
 
@@ -242,36 +228,50 @@ void AudioIoCallback::DrainInputBuffers(constSamplePtr inputBuffer, unsigned lon
     }
 
     for (unsigned n = 0; n < numCaptureChannels; ++n) {
+        //Only save data from that input channel if it is needed
+        if (!mCaptureMap[n].empty()) {
+            switch (mCaptureFormat) {
+                case floatSample: {
+                    auto inputFloats = (const float*) inputBuffer;
 
-        switch (mCaptureFormat) {
-            case floatSample: {
-                auto inputFloats = (const float*) inputBuffer;
+                    for (unsigned i = 0; i < len; ++i) {
+                        tempFloats[i] = inputFloats[numCaptureChannels*i + n];
+                    }
+                } break;
 
-                for (unsigned i = 0; i < len; ++i) {
-                    tempFloats[i] = inputFloats[numCaptureChannels*i + n];
-                }
-            } break;
+                case int24Sample: {
+                    //IN THEORY SHOULD NEVER GET HERE
+                    assert(false);
+                } break;
 
-            case int24Sample: {
-                //IN THEORY SHOULD NEVER GET HERE
-                assert(false);
-            } break;
+                case int16Sample: {
+                    auto inputShorts = (const short*) inputBuffer;
+                    short* tempShorts = (short* ) tempFloats;
 
-            case int16Sample: {
-                auto inputShorts = (const short*) inputBuffer;
-                short* tempShorts = (short* ) tempFloats;
-
-                for (unsigned i = 0; i < len; ++i) {
-                    float tmp = inputShorts[numCaptureChannels*i + n];
-                    tmp = std::clamp(tmp, -32768.0f, 32767.0f);
-                    tempShorts[i] = (short)tmp;
-                }
-            } break;
+                    for (unsigned i = 0; i < len; ++i) {
+                        float tmp = inputShorts[numCaptureChannels*i + n];
+                        tmp = std::clamp(tmp, -32768.0f, 32767.0f);
+                        tempShorts[i] = (short)tmp;
+                    }
+                } break;
+            }
+            mCaptureBuffers[n]->Put((samplePtr) tempFloats, mCaptureFormat, len);
+            mCaptureBuffers[n]->Flush();
         }
-
-        mCaptureBuffers[n]->Put((samplePtr) tempFloats, mCaptureFormat, len);
-        mCaptureBuffers[n]->Flush();
     }
+}
+
+bool AudioIoCallback::BuildMaps() {
+    bool result = false;
+    if (mNumCaptureChannels > 0) {
+        mCaptureMap.resize(mNumCaptureChannels);
+        for (const auto& pSeq: mRecordingSequences) {
+            if (pSeq->isValid())
+                mCaptureMap[pSeq->GetFirstChannelIN()].push_back(pSeq);
+        }
+        result = true;
+    }
+    return result;
 }
 
 size_t AudioIoCallback::CommonlyReadyPlayback() {
@@ -279,10 +279,7 @@ size_t AudioIoCallback::CommonlyReadyPlayback() {
 }
 
 AudioIO::AudioIO() {
-    if (!initPortAudio()) {
-        //REPLACE WITH WARNING POPUP
-        printf("Error initializing audio stream\n");
-    }
+
 }
 
 AudioIO::~AudioIO() {
@@ -303,34 +300,234 @@ AudioIO::~AudioIO() {
 void AudioIO::Init() {
     auto pAudioIO = new AudioIO();
     ugAudioIO.reset(pAudioIO);
-    pAudioIO->startAudioThread();
+    pAudioIO->startThread();
 }
 
 void AudioIO::DeInit() {
     ugAudioIO.reset();
 }
 
-
-bool AudioIO::initPortAudio() {
-    PaError err;
-
-    err = Pa_Initialize();
-
-    return (err == paNoError);
-}
-
-void AudioIO::startAudioThread() {
+void AudioIO::startThread() {
     mAudioThread = std::thread(&AudioIO::audioThread, std::ref(mKillAudioThread));
 }
 
-int AudioIO::startStream() {
-    return 0;
+void AudioIoCallback::startAudioThread() {
+    mAudioThreadSequenceBufferExchangeLoopRunning.store(true, std::memory_order_release);
 }
+void AudioIoCallback::stopAudioThread() {
+    mAudioThreadSequenceBufferExchangeLoopRunning.store(false, std::memory_order_release);
+}
+
+void AudioIoCallback::waitForAudioThreadStarted() {
+    while (mAudioThreadAcknowledge.load(std::memory_order_acquire) != eStart) {
+        using namespace std::chrono;
+        std::this_thread::sleep_for(50ms);
+    }
+    mAudioThreadAcknowledge.store(eNone, std::memory_order_release);
+}
+
+void AudioIoCallback::waitForAudioThreadStopped() {
+    while (mAudioThreadAcknowledge.load(std::memory_order_acquire) != eStop) {
+        using namespace std::chrono;
+        std::this_thread::sleep_for(50ms);
+    }
+    mAudioThreadAcknowledge.store(eNone, std::memory_order_release);
+}
+
+void AudioIoCallback::processOnceAndWait() {
+    mAudioThreadShouldSequenceBufferExchangeOnce.store(true, std::memory_order_release);
+
+    while (mAudioThreadShouldSequenceBufferExchangeOnce.load(std::memory_order_acquire))
+    {
+        using namespace std::chrono;
+        std::this_thread::sleep_for(50ms);
+    }
+}
+
+
+
+int AudioIO::startStream(const TransportSequence &sequences, double t0, double t1, const audioIoStreamOptions &options) {
+    const auto &startTime = options.mStartTime;
+
+    mRecordingSchedule = {};
+    mRecordingSchedule.mLatencyCorrection = -130/1000.0;
+    mRecordingSchedule.mDuration = t1-t0;
+    mRate = options.mSampleRate;
+
+    mRecordingSequences = sequences.captureSequences;
+    mPlayableSequences = sequences.playableSequences;
+
+    bool commit = false;
+    auto cleanupSequences = finally([&] {
+        if (!commit) {
+            mRecordingSequences.clear();
+            mPlayableSequences.clear();
+        }
+    });
+
+    mPlaybackBuffers.clear();
+    mCaptureBuffers.clear();
+    mResample.clear();
+
+    mPlaybackShchedule.mTimeQueue.Clear();
+
+    mPlaybackShchedule.Init(t0, t1, mRecordingSequences.empty()?nullptr:&mRecordingSchedule);
+
+    bool successAudio = createPortAudioStream(options);
+
+    mPlaybackShchedule.GetPolicy().Initialize(mRate);
+
+    if (!successAudio)
+        return 0;
+
+    if (!AllocateBuffers(mRate))
+        return 0;
+    BuildMaps();
+
+    if (startTime) {
+        auto time = *startTime;
+
+        mPlaybackShchedule.SetSequenceTime(time);
+        mPlaybackShchedule.GetPolicy().OffsetSequenceTime(mPlaybackShchedule, 0);
+    }
+
+    mPlaybackShchedule.mTimeQueue.Prime(mPlaybackShchedule.GetSequenceTime());
+
+    //Trigger the audio thread to sequence buffers so the output buffers have data in them once the stream gets started
+    mAudioThreadShouldSequenceBufferExchangeOnce.store(true, std::memory_order_release);
+
+    while (mAudioThreadShouldSequenceBufferExchangeOnce.load(std::memory_order_acquire)) {
+        using namespace std::chrono;
+        std::this_thread::sleep_for(50ms);
+    }
+
+    startAudioThread();
+
+    PaError err = mAudioStream->startStream();
+
+    if (err != paNoError) {
+        printf("Error Starting the audio stream \n");
+
+        stopAudioThread();
+
+        startStreamCleanup();
+
+        return 0;
+    }
+
+    commit = true;
+    waitForAudioThreadStarted();
+
+    return 1;
+}
+
+bool AudioIO::createPortAudioStream(const audioIoStreamOptions &options) {
+    mNumPlaybackChannels = options.mPlaybackChannels;
+    mNumCaptureChannels = options.mCaptureChannels;
+
+    bool usePlayback = false, useCapture = false;
+    PaStreamParameters outputParameters {};
+    PaStreamParameters inputParameters {};
+
+#ifdef __WXMSW__
+    PaWasapiStreamInfo wasapiStreamInfo {};
+#endif
+
+    auto latencyDuration = 100;
+
+    if (mNumPlaybackChannels > 0) {
+        usePlayback = true;
+
+        outputParameters.device = options.OutDev;
+
+        const PaDeviceInfo *playbackDeviceInfo = Pa_GetDeviceInfo(outputParameters.device );
+
+        if( playbackDeviceInfo == NULL )
+            return false;
+
+        outputParameters.sampleFormat = paFloat32;
+        outputParameters.hostApiSpecificStreamInfo = NULL;
+        outputParameters.channelCount = mNumPlaybackChannels;
+
+        const PaHostApiInfo* hostInfo = Pa_GetHostApiInfo(playbackDeviceInfo->hostApi);
+        bool isWASAPI = (hostInfo && hostInfo->type == paWASAPI);
+
+        outputParameters.suggestedLatency = isWASAPI ? 0.0 : latencyDuration/1000;
+    }
+    if (mNumCaptureChannels > 0) {
+        useCapture = true;
+
+        inputParameters.device = options.InDev;
+
+        const PaDeviceInfo *captureDeviceInfo = Pa_GetDeviceInfo(inputParameters.device);
+        if( captureDeviceInfo == NULL )
+            return false;
+
+        inputParameters.sampleFormat = paFloat32;
+        inputParameters.hostApiSpecificStreamInfo = NULL;
+        inputParameters.channelCount = mNumCaptureChannels;
+
+        inputParameters.suggestedLatency = latencyDuration/1000;
+    }
+
+    PaError err = paNoError;
+
+    mAudioStream = new AudioIOStream(err,
+        useCapture? &inputParameters : nullptr,
+        usePlayback? &outputParameters: nullptr,
+        mRate, AudioCallback);
+
+    return err == paNoError;
+}
+
+void AudioIO::stopStream() {
+
+    if (mAudioStream == NULL)
+        return;
+    stopAudioThread();
+
+    if (mAudioStream->getStreamStillRunning()) {
+        mAudioStream->abortStream();
+    }
+    mAudioStream = NULL;
+
+    waitForAudioThreadStopped();
+
+    //Ensure no data is lost from the buffers and dont make it into the recordable sequences
+    processOnceAndWait();
+
+    mPlaybackBuffers.clear();
+    mPlaybackShchedule.mTimeQueue.Clear();
+
+    {
+        if (mRecordingSequences.size() >0) {
+            mCaptureBuffers.clear();
+            mResample.clear();
+
+            for (auto seq : mRecordingSequences) {
+                //Safe call this to ensure that it doesnt mess with other processes
+                //could through errors when disk size is not adequeate
+
+                try {
+                    seq->Flush();
+                } catch (...) {
+                    printf("Error saving sequence");
+                }
+            }
+        }
+    }
+
+    mNumCaptureChannels = 0;
+    mNumPlaybackChannels = 0;
+}
+
+
 void AudioIO::startStreamCleanup(bool bClearBuffersOnly /*=false*/) {
     mPlaybackBuffers.clear();
     mCaptureBuffers.clear();
     if (!bClearBuffersOnly) {
-        //HANDLE ISSUES WITH STREAM HERE
+        mAudioStream->abortStream();
+        mAudioStream = nullptr;
     }
 }
 
@@ -465,8 +662,10 @@ void AudioIO::audioThread(std::atomic<bool> &finish) {
 
             lastState = State::eOnce;
         } else if (gAudioIO->mAudioThreadSequenceBufferExchangeLoopRunning.load(std::memory_order_relaxed)) {
+            gAudioIO->mAudioThreadSequenceBufferExchangeActive
+                .store(true, std::memory_order_relaxed);
             if (lastState != State::eLoopRunning) {
-                //Notify Main Thread that we started
+                gAudioIO->mAudioThreadAcknowledge.store(eStart, std::memory_order_release);
             }
 
             lastState = State::eLoopRunning;
@@ -474,7 +673,7 @@ void AudioIO::audioThread(std::atomic<bool> &finish) {
             gAudioIO->sequenceBufferExchange();
         } else {
             if (lastState == State::eLoopRunning) {
-                //Notify Main thread that we stopped
+                gAudioIO->mAudioThreadAcknowledge.store(eStop, std::memory_order_release);
             }
             lastState = State::eDoNothing;
             if (gAudioIO->isMonitoring()) {
@@ -513,84 +712,81 @@ void AudioIO::DrainRecordBuffers() {
         if (mAudioThreadShouldSequenceBufferExchangeOnce.load(std::memory_order_relaxed)|| deltaT >= mMinCaptureBufferSecsToCopy ) {
             bool newBlocks = false;
 
-            auto iter = mRecordingSequences.begin();
-            auto width = (*iter)->NChannels();
-            size_t iChannel = 0;
+            size_t iChannel =0;
+            size_t currChannelNum = 0;
 
-            for (size_t i = 0; i < mNumCaptureChannels; i++) {
-                Finally Do{[&] {
-                    if (++iChannel == width) {
-                        iter++;
-                        iChannel = 0;
-                        if (iter != mRecordingSequences.end()) {
-                            width = (*iter)->NChannels();
+            for (size_t i = 0; i < mCaptureBuffers.size(); i++) {
+                while (mCaptureMap[currChannelNum].empty()) {
+                    currChannelNum++;
+                }
+                for (auto pSeq: mCaptureMap[currChannelNum]) {
+
+                    size_t discarded = 0;
+
+                    if (!mRecordingSchedule.mLatencyCorrected) {
+                        const auto correction = mRecordingSchedule.TotalCorrection();
+
+                        if (correction >= 0) {
+                            size_t size = floor(correction*mRate*mFactor);
+
+                            SampleBuffer temp(size, mCaptureFormat);
+                            ClearSamples(temp.ptr(), mCaptureFormat, 0, size);
+
+                            (pSeq)->append(iChannel, temp.ptr(), mCaptureFormat, size, 1, narrowestSampleFormat);
+                        } else {
+                            size_t size = floor(mRecordingSchedule.ToDiscard() * mRate);
+
+                            discarded = mCaptureBuffers[i] ->discard(std::min(avail, size));
+
+                            if (discarded < size) {
+                                latencyCorrected = false;
+                            }
                         }
                     }
-                }};
 
-                size_t discarded = 0;
+                    wxASSERT(discarded <= avail);
+                    size_t toGet = avail - discarded;
+                    SampleBuffer temp;
+                    size_t size;
+                    SampleFormat format;
 
-                if (!mRecordingSchedule.mLatencyCorrected) {
-                    const auto correction = mRecordingSchedule.TotalCorrection();
+                    if (mFactor == 1) {
+                        size = toGet;
+                        format = mCaptureFormat;
 
-                    if (correction >= 0) {
-                        size_t size = floor(correction*mRate*mFactor);
+                        temp.Allocate(size, format);
 
-                        SampleBuffer temp(size, mCaptureFormat);
-                        ClearSamples(temp.ptr(), mCaptureFormat, 0, size);
+                        const auto Got = mCaptureBuffers[i]->Get(temp.ptr(), format, size);
 
-                        (*iter)->append(iChannel, temp.ptr(), mCaptureFormat, size, 1, narrowestSampleFormat);
+                        wxUnusedVar(Got);
+
+                        if (double (size) > remainingSamples) {
+                            size = floor(remainingSamples);
+                        }
                     } else {
-                        size_t size = floor(mRecordingSchedule.ToDiscard() * mRate);
+                        size = lrint(toGet * mFactor);
+                        format = floatSample;
+                        SampleBuffer temp1(toGet, floatSample);
+                        temp.Allocate(size, format);
 
-                        discarded = mCaptureBuffers[i] ->discard(std::min(avail, size));
-
-                        if (discarded < size) {
-                            latencyCorrected = false;
+                        if (toGet > 0 ) {
+                            if (double(toGet) > remainingSamples)
+                                toGet = floor(remainingSamples);
+                            const auto results =
+                            mResample[i]->Process(mFactor, (float *)temp1.ptr(), toGet,
+                                                  !isStreamRunning(), (float *)temp.ptr(), size);
+                            size = results.second;
                         }
                     }
+
+                    newBlocks = ((pSeq) -> append(iChannel, temp.ptr(), format, size, 1, narrowestSampleFormat)) || newBlocks;
                 }
 
-                wxASSERT(discarded <= avail);
-                size_t toGet = avail - discarded;
-                SampleBuffer temp;
-                size_t size;
-                SampleFormat format;
+                mRecordingSchedule.mPosition += avail/mRate;
+                mRecordingSchedule.mLatencyCorrected = latencyCorrected;
 
-                if (mFactor == 1) {
-                    size = toGet;
-                    format = mCaptureFormat;
 
-                    temp.Allocate(size, format);
-
-                    const auto Got = mCaptureBuffers[i]->Get(temp.ptr(), format, size);
-
-                    wxUnusedVar(Got);
-
-                    if (double (size) > remainingSamples) {
-                        size = floor(remainingSamples);
-                    }
-                } else {
-                    size = lrint(toGet * mFactor);
-                    format = floatSample;
-                    SampleBuffer temp1(toGet, floatSample);
-                    temp.Allocate(size, format);
-
-                    if (toGet > 0 ) {
-                        if (double(toGet) > remainingSamples)
-                            toGet = floor(remainingSamples);
-                        const auto results =
-                        mResample[i]->Process(mFactor, (float *)temp1.ptr(), toGet,
-                                              !isStreamRunning(), (float *)temp.ptr(), size);
-                        size = results.second;
-                    }
-                }
-
-                newBlocks = ((*iter) -> append(iChannel, temp.ptr(), format, size, 1, narrowestSampleFormat)) || newBlocks;
             }
-
-            mRecordingSchedule.mPosition += avail/mRate;
-            mRecordingSchedule.mLatencyCorrected = latencyCorrected;
         }
     }
 }

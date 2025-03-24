@@ -13,6 +13,7 @@
 #include "PlaybackSchedules.h"
 #include "Resample.h"
 #include "../audioBuffers.h"
+#include "../../Playback/Track.h"
 #include "../../Playback/Sequences/AudioIOSequences.h"
 #include "../../Saving/DBConnection.h"
 
@@ -27,15 +28,6 @@ struct testUserData {
 };
 
 struct audioProcessingUserData {
-
-};
-
-struct audioIoStreamOptions {
-    unsigned int mCaptureChannels;
-    unsigned int mPlaybackChannels;
-
-    unsigned int mSampleRate;
-
 
 };
 
@@ -58,8 +50,6 @@ protected:
     double mRate;
 
 public:
-    static void initAudio();
-    static void createDB();
 
     bool isMonitoring() {return false;}
 
@@ -79,16 +69,26 @@ public:
 class AudioIOStream {
 
 public:
-    AudioIOStream(PaError &err,PaStreamParameters inputParams, PaStreamParameters outputParams, int srate, PaStreamCallback CallbackFXN);
-    PaError initializeAudioStream(PaStreamParameters, PaStreamParameters, int,  PaStreamCallback CallbackFXN);
-    void startStream();
+    AudioIOStream(PaError &err,PaStreamParameters *inputParams, PaStreamParameters *outputParams, int srate, PaStreamCallback CallbackFXN);
+    ~AudioIOStream();
+    PaError initializeAudioStream(PaStreamParameters*, PaStreamParameters*, int,  PaStreamCallback CallbackFXN);
+    PaError startStream();
     void endStream();
+    void abortStream();
 
 private:
     PaStream *mStream = nullptr;
 
 public:
-    bool getStreamStillRunning(){return false;};
+    bool getStreamStillRunning(){return Pa_IsStreamActive(mStream);};
+    bool isValid(){return mStream != nullptr;}
+    void PrintSFormat();
+};
+
+enum Acknowledge {
+    eNone,
+    eStart,
+    eStop
 };
 
 class AudioIoCallback
@@ -101,7 +101,7 @@ protected:
     std::atomic<bool> mKillAudioThread{false};
 
     //Audio Settings
-    SampleFormat mCaptureFormat;
+    SampleFormat mCaptureFormat = floatSample;
 
     int mCallbackReturn;
 
@@ -111,17 +111,20 @@ protected:
     size_t mNumPlaybackChannels;
     constPlayableSequences mPlayableSequences;
     PlaybackSchedule mPlaybackShchedule;
-
+     
     int mbHasSoloSequences;
 
     size_t mNumCaptureChannels;
     recordingSequences mRecordingSequences;
     RecordingSchedule mRecordingSchedule;
 
+    std::vector<recordingSequences> mCaptureMap;
+
     //AudioThread Settings
     std::atomic<bool> mAudioThreadSequenceBufferExchangeActive {false};
     std::atomic<bool> mAudioThreadShouldSequenceBufferExchangeOnce {false};
     std::atomic<bool> mAudioThreadSequenceBufferExchangeLoopRunning {false};
+    std::atomic<Acknowledge> mAudioThreadAcknowledge { eNone };
 
     //buffers
     using audioBuffers = std::vector<std::unique_ptr<audioBuffer>>;
@@ -158,7 +161,7 @@ public:
     // ~AudioIoCallback();
 
     bool SequenceShouldBeSilent(const PlaybackSequence &ps);
-    int AudioCallback(constSamplePtr inputBuffer, float* outputBuffer,  unsigned long framesPerBuffer,
+    int AudioIOCallback(constSamplePtr inputBuffer, float* outputBuffer,  unsigned long framesPerBuffer,
                            const PaStreamCallbackTimeInfo* timeInfo,
                            PaStreamCallbackFlags statusFlags,
                            void *userData);
@@ -169,21 +172,47 @@ public:
     void FillOutputBuffers(float* outputFloats, unsigned long framesPerBuffer);
     void DrainInputBuffers(constSamplePtr inputBuffer, unsigned long framesPerBuffer, float* tempFloats);
 
-
     unsigned CountSoloSequences();
-
 
     bool isPaused() const {return mPaused.load(std::memory_order_relaxed);}
 
+    //Playback stuff
+
 protected:
+
+    void startAudioThread();
+    void stopAudioThread();
+
+    void waitForAudioThreadStarted();
+    void waitForAudioThreadStopped();
+    void processOnceAndWait();
+
     void doPlayback();
     void doInput();
+
+    bool BuildMaps();
 
     static size_t MinValues(const audioBuffers &buffers, size_t(audioBuffer::*pmf)() const);
 
     size_t CommonlyReadyPlayback();
 };
 
+struct TransportSequence {
+    recordingSequences captureSequences = {};
+    constPlayableSequences playableSequences = {};
+};
+
+struct audioIoStreamOptions {
+    unsigned int mCaptureChannels = 0;
+    unsigned int mPlaybackChannels = 0;
+
+    PaDeviceIndex InDev = 0;
+    PaDeviceIndex OutDev = 0;
+
+    unsigned int mSampleRate = 0;
+
+    std::optional<double> mStartTime;
+};
 
 class AudioIO
     : public AudioIoCallback{
@@ -202,22 +231,25 @@ public:
     AudioIO();
     ~AudioIO();
 
-    int startStream();
+    int startStream(const TransportSequence &transportSequence, double t0, double t1, const audioIoStreamOptions & options);
+    void stopStream();
+
 
     bool isStreamRunning() {return mAudioStream->getStreamStillRunning();};
-
-    bool createPortAudioStream() {return false;};
 
     //audio processing functions (while part of stream)
     static void audioThread(std::atomic<bool>& finish);
 
     void sequenceBufferExchange();
 
+
+
 private:
 
-    bool initPortAudio();
+    void startThread();
 
-    void startAudioThread();
+
+    bool createPortAudioStream(const audioIoStreamOptions &options);
 
     void startStreamCleanup(bool bClearBuffersOnly = false);
 
