@@ -25,15 +25,18 @@ class PlaybackHandler {
 
     Tracks mTracks;
 
+    std::atomic_bool mStopUiThread = false;
+    std::thread mUiThread;
+
 public:
     ~PlaybackHandler();
 
     void StartCApp();
-    void Save(){};
+    void Save(){}
 
     //Playback
-    void Play(){};
-    void Pause(){};
+    void Play();
+    void stopPlayback();
     void Record();
     void endRecording();
 
@@ -61,6 +64,9 @@ private:
     void AudioSettingsMenu();
     void PlaybackMenu();
     void RecordMenu();
+    void RecordUIThread();
+    void PlayMenu();
+    void PlayUIThread(bool &loop);
 
     std::string buildFileName();
     void createAudioTempDB();

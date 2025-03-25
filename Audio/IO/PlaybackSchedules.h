@@ -70,7 +70,7 @@ public:
         return 10ms;
     }
 
-    virtual std::pair<double, double>
+    std::pair<double, double>
       AdvancedTrackTime( PlaybackSchedule &schedule,
          double trackTime, size_t nSamples );
 
@@ -83,7 +83,7 @@ public:
 struct PlaybackSchedule {
     double mT0;
     double mT1;
-    double mCurrentTime;
+    double mCurrentTime = 0;
     std::atomic<double> mTime;
 
     std::unique_ptr<PlaybackPolicy> mpPlaybackPolicy = std::make_unique<PlaybackPolicy>();

@@ -6,7 +6,7 @@
 
 #include <wx/debug.h>
 
-#include "PlaybackHandler.h"
+#include "../Visual/PlaybackHandler.h"
 
 
 bool Track::append(size_t channel, constSamplePtr buffer, SampleFormat format, size_t len, unsigned int stride, SampleFormat effectiveFormat) {

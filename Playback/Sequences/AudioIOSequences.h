@@ -20,6 +20,7 @@ struct PlaybackSequence : AudioGraph::Channel {
 
     virtual size_t NChannels() const = 0;
     virtual int GetFirstChannelOut() const = 0;
+    virtual bool isValid() const = 0;
 
     virtual double GetRate() const= 0;
 
@@ -40,6 +41,8 @@ struct RecordingSequence {
     virtual bool isValid() const = 0;
 
     virtual size_t NChannels() const = 0;
+    virtual bool appendSecond() const = 0;
+    virtual void toggleAppendSecond() = 0;
     virtual int GetFirstChannelIN() const= 0;
 
     virtual bool append(size_t channel, constSamplePtr buffer, SampleFormat format, size_t len, unsigned int stride, SampleFormat effectiveFormat) = 0;

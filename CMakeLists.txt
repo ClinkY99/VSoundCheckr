@@ -47,8 +47,8 @@ add_executable(RecordingSoftwareISP main.cpp
         Audio/IO/PlaybackSchedules.h
         Audio/IO/Resample.cpp
         Audio/IO/Resample.h
-        Playback/PlaybackHandler.cpp
-        Playback/PlaybackHandler.h
+        Visual/PlaybackHandler.cpp
+        Visual/PlaybackHandler.h
 )
 
 find_package(wxWidgets CONFIG REQUIRED)

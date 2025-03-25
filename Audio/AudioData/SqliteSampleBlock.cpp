@@ -33,7 +33,7 @@ SampleBlockPtr SqliteSampleBlockFactory::DoCreate(constSamplePtr src, SampleForm
     if (sb.get()) {
         mAllBlocks[sb->getBlockID()] = sb;
     } else {
-        throw;
+        wxASSERT(false);
     }
 
     return sb;
@@ -116,13 +116,13 @@ void SqliteSampleBlock::load(SampleBlockID id) {
     //Bind blockID
     if (sqlite3_bind_int(stmt, 1, id)) {
         //BINDING FAIlED (replace with log)
-        throw;
+        wxASSERT(false);
     }
 
     //Complete Statement
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         //EXECUTE FAIlED (replace with log)
-        throw;
+        wxASSERT(false);
     }
 
     mBlockID = id;
@@ -160,12 +160,12 @@ void SqliteSampleBlock::Commit(Sizes sizes) {
         sqlite3_bind_blob(stmt, 7, mSummary64k.get(), summary64kBytes, SQLITE_STATIC))
         {
         //BINDING FAIlED (replace with log)
-        throw;
+        wxASSERT(false);
     }
     //Perform step
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         //STEP FAILED (replace with log)
-        throw;
+        wxASSERT(false);
     }
 
     mBlockID = sqlite3_last_insert_rowid(DB());
@@ -192,13 +192,13 @@ void SqliteSampleBlock::Delete() {
     //Bind Block ID
     if (sqlite3_bind_int(stmt, 1, mBlockID)) {
         //BINDING FAIlED (replace with log)
-        throw;
+        wxASSERT(false);
     }
 
     //execute stmt
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         //EXECUTE FAIlED (replace with log)
-        throw;
+        wxASSERT(false);
     }
 
     //Reset Stmt for future use
@@ -381,7 +381,7 @@ size_t SqliteSampleBlock::DoGetSamples(samplePtr dest, SampleFormat destFormat, 
 
     auto* stmt = Conn()->Prepare(DBConnection::statementID::GetSamples, "SELECT samples FROM sampleBlocks WHERE blockID = ?1;");
 
-    return GetBlob(stmt, dest, destFormat, mSampleFormat, offset, nSamples*SAMPLE_SIZE(destFormat))/SAMPLE_SIZE(destFormat);
+    return GetBlob(stmt, dest, destFormat, mSampleFormat, offset*SAMPLE_SIZE(destFormat), nSamples*SAMPLE_SIZE(destFormat))/SAMPLE_SIZE(destFormat);
 }
 
 MaxMinRMS SqliteSampleBlock::DoGetMaxMinRMS() {
@@ -443,7 +443,7 @@ size_t SqliteSampleBlock::GetBlob(sqlite3_stmt *stmt, void *dest, SampleFormat d
 
     if (sqlite3_bind_int64(stmt, 1, mBlockID)) {
         //BINDING ERROR OCCURED
-        throw;
+        wxASSERT(false);
     }
 
     int minBytes =0;
@@ -456,7 +456,7 @@ size_t SqliteSampleBlock::GetBlob(sqlite3_stmt *stmt, void *dest, SampleFormat d
         sqlite3_clear_bindings(stmt);
         sqlite3_reset(stmt);
 
-        throw;
+        wxASSERT(false);
     }
 
     samplePtr src = (samplePtr) sqlite3_column_blob(stmt, 0);
@@ -465,7 +465,13 @@ size_t SqliteSampleBlock::GetBlob(sqlite3_stmt *stmt, void *dest, SampleFormat d
     srcOffset = std::min(srcOffset, BlobBytes);
     minBytes = std::min(srcBytes, BlobBytes-srcOffset);
 
+    wxASSERT(minBytes+srcBytes <= BlobBytes);
+
+    std::vector<float> test;
+    test.resize(minBytes/SAMPLE_SIZE(srcFormat));
+
     CopySamples(src +srcOffset, srcFormat, (samplePtr) dest, destFormat, minBytes/SAMPLE_SIZE(srcFormat), none);
+    CopySamples(src +srcOffset, srcFormat, (samplePtr) test.data(), destFormat, minBytes/SAMPLE_SIZE(srcFormat), none);
 
     dest = ((samplePtr)dest) + minBytes;
     if (srcBytes-minBytes) {

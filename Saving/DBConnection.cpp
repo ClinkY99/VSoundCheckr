@@ -75,28 +75,28 @@ int DBConnection::openStepByStep(const FilePath fileName) {
 
    if (err != SQLITE_OK) {
       //ERROR CONNECTING TO MAIN DB
-      throw;
+      wxASSERT(false);
    }
 
    err = setPageSize();
 
    if (err != SQLITE_OK) {
       //ERR SETTING PAGE SIZE
-      throw;
+      wxASSERT(false);
    }
 
    err = SafeMode();
 
    if (err != SQLITE_OK) {
       //FAILED TO SET TO SAFE MODE
-      throw;
+      wxASSERT(false);
    }
 
    err = sqlite3_open(filePath, &mCheckpointDB);
 
    if (err != SQLITE_OK) {
       //FAILED TO OPEN CHECKPOINT DB
-      throw;
+      wxASSERT(false);
    }
 
    err = ModeConfig(mCheckpointDB, "main", SafeConfig);
@@ -133,7 +133,7 @@ sqlite3_stmt* DBConnection::Prepare(statementID id, const char *sql) {
    if (err != SQLITE_OK) {
       //FAILED TO PREPARE STATMENT
       std::cout<< "Err Code"<< sqlite3_errmsg(mDB) << std::endl;
-      throw;
+      wxASSERT(false);
    }
 
    //save the statement
@@ -183,7 +183,7 @@ bool DBConnection::close() {
          int err = sqlite3_finalize(statement.second);
          if (err != SQLITE_OK) {
             //FAILED TO FINALIZE STATEMENT
-            throw;
+            wxASSERT(false);
          }
       }
 
@@ -216,7 +216,7 @@ int DBConnection::ModeConfig(sqlite3 *db, const char *schema, const char *config
 
    if (err != SQLITE_OK) {
       //FAILED TO CONFIG
-      throw;
+      wxASSERT(false);
    }
 
    return err;
@@ -288,7 +288,7 @@ void DBConnection::checkpointThread(sqlite3 *db, FilePath fileName) {
          giveup = true;
          //END AUDIO THREAD
          //EXIT AUDIO
-         throw;
+         wxASSERT(false);
       }
    }
 }

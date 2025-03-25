@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <wx/cpp.h>
+#include <wx/debug.h>
 #include <wx/types.h>
 
 #include "../Dither.h"
@@ -86,7 +87,7 @@ void Sequence::DoAppend(constSamplePtr src, SampleFormat srcFormat, size_t len) 
     auto &factory = mpFactory;
 
     //Ensure it doesnt overflow int limit
-    if (Overflows(mSampleCount.as_double()+(double) len)) throw;
+    if (Overflows(mSampleCount.as_double()+(double) len)) wxASSERT(false);
 
     BlockArray newBlocks;
     sampleCount newNumSamples = mSampleCount;
@@ -154,7 +155,7 @@ bool Sequence::read(samplePtr buffer, SampleFormat format, const SeqBlock &seqBl
 
     if (result != len) {
         //EXPECTED A DIFFERENT AMOUNT OF SAMPLES
-        throw;
+        wxASSERT(false);
         return false;
     }
 
@@ -171,7 +172,7 @@ void Sequence::AppendBlocks(BlockArray &additionalBlocks, bool replaceLast, samp
         mBlockCount.store(mBlocks.size(), std::memory_order::relaxed);
         mBlocks.pop_back();
     }
-    std::copy(additionalBlocks.begin(), additionalBlocks.end(), std::back_inserter(additionalBlocks));
+    std::copy(additionalBlocks.begin(), additionalBlocks.end(), std::back_inserter(mBlocks));
 
     mSampleCount = numSamples;
 

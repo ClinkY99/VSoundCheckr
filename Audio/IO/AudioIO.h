@@ -74,6 +74,8 @@ public:
     void endStream();
     void abortStream();
 
+    double getOutputLatency() {return Pa_GetStreamInfo(mStream)->outputLatency;}
+
 private:
     PaStream *mStream = nullptr;
 
@@ -107,16 +109,21 @@ protected:
 
     //channels
     size_t mNumPlaybackChannels;
+    size_t mMaxPLaybackChannels;
     constPlayableSequences mPlayableSequences;
     PlaybackSchedule mPlaybackShchedule;
      
     int mbHasSoloSequences;
 
     size_t mNumCaptureChannels;
+    size_t mMaxNumCaptureChannels;
     recordingSequences mRecordingSequences;
     RecordingSchedule mRecordingSchedule;
 
     std::vector<recordingSequences> mCaptureMap;
+    constPlayableSequences mPlaybackMap;
+
+    double mSeek = 0;
 
     //AudioThread Settings
     std::atomic<bool> mAudioThreadSequenceBufferExchangeActive {false};
@@ -174,9 +181,16 @@ public:
 
     bool isPaused() const {return mPaused.load(std::memory_order_relaxed);}
 
+    void doSeek(double amount) {mSeek = amount;}
+
+    double getCurrentPlaybackTime(){return mPlaybackShchedule.mTimeQueue.GetLastTime();}
+    double getRecordingTime(){return mRecordingSchedule.mPosition;}
     //Playback stuff
 
+
+
 protected:
+    int CallbackDoSeek();
 
     void startAudioThread();
     void stopAudioThread();
@@ -240,11 +254,13 @@ public:
 
     void sequenceBufferExchange();
 
+    void togglePause();
 
 
 private:
 
     void startThread();
+
 
 
     bool createPortAudioStream(const audioIoStreamOptions &options);

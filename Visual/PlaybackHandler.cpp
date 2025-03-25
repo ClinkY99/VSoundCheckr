@@ -35,19 +35,24 @@ bool PlaybackHandler::YNConfirm() {
     return false;
 }
 
+void clrscrSafe() {
+    // #if defined _WIN32
+    //     system("cls");
+    //     //clrscr(); // including header file : conio.h
+    // #elif defined (__LINUX__) || defined(__gnu_linux__) || defined(__linux__)
+    //     system("clear");
+    //     //std::cout<< u8"\033[2J\033[1;1H"; //Using ANSI Escape Sequences
+    // #elif defined (__APPLE__)
+    //     system("clear");
+    // #endif
+}
+
 void PlaybackHandler::clrscr() {
-// #if defined _WIN32
-//     system("cls");
-//     //clrscr(); // including header file : conio.h
-// #elif defined (__LINUX__) || defined(__gnu_linux__) || defined(__linux__)
-//     system("clear");
-//     //std::cout<< u8"\033[2J\033[1;1H"; //Using ANSI Escape Sequences
-// #elif defined (__APPLE__)
-//     system("clear");
-// #endif
+    clrscrSafe();
 
     cin.sync();
 }
+
 
 int PlaybackHandler::inputTrackNum() {
     int trackNum;
@@ -57,14 +62,20 @@ int PlaybackHandler::inputTrackNum() {
     return std::clamp(trackNum, 1, (int) mTracks.size())-1;
 }
 
+string makeTime(size_t seconds) {
+    int hours = seconds / 3600;
+    int minutes = (seconds % 3600) / 60;
+    int secondsConv = seconds % 60;
+
+    return to_string(hours) + "H " + to_string(minutes) + "M " + to_string(secondsConv)+"s";
+}
+
 
 //Menu Stuff
 //------------------------------------------------------------------------------------
 void PlaybackHandler::StartCApp() {
     AudioIO::Init();
-    if (!saveFile && !AudioIO::sAudioDB) {
-        createAudioTempDB();
-    }
+
     mAudioIO = AudioIO::Get();
     Pa_Initialize();
     mHostApi = Pa_GetDefaultHostApi();
@@ -145,7 +156,7 @@ void PlaybackHandler::PlaybackMenu() {
                 Record();
             }break;
             case 3: {
-
+                Play();
             } break;
             case 0: {
                 loop = false;
@@ -161,25 +172,114 @@ void PlaybackHandler::PlaybackMenu() {
 void PlaybackHandler::RecordMenu() {
     int input;
     bool loop = true;
+    mStopUiThread.store(false, memory_order::release);
+    mUiThread = std::thread([this]{RecordUIThread();});
     while (loop) {
-        clrscr();
-        cout<<"(TMP) Recording: \n"
-              "1 EndRecording \n"
-              ">>";
+        cin.sync();
         cin>>input;
 
         switch (input) {
             case 1: {
+                mAudioIO->togglePause();
+            } break;
+            case 2: {
+                mStopUiThread.store(true, memory_order::relaxed);
                 endRecording();
                 loop = false;
             } break;
             default: {
                 cout<<"Invalid Input"<<endl;
-                waitForKeyPress();
             }
         }
     }
+    mUiThread.detach();
 }
+
+void PlaybackHandler::RecordUIThread() {
+    while (!mStopUiThread.load(memory_order::acquire)) {
+        clrscrSafe();
+        if (mAudioIO->isPaused()) {
+            cout<<"Recording Paused (" << makeTime(mAudioIO->getRecordingTime()) << ")\n"
+                "1 UnPause Recording \n"
+                "2 End Recording \n"
+                ">>";
+
+        } else {
+            cout<<"Recording (" << makeTime(mAudioIO->getRecordingTime()) << ")\n"
+                "1 Pause Recording \n"
+                "2 End Recording \n"
+                ">>";
+        }
+
+        using namespace chrono;
+        std::this_thread::sleep_for(1s);
+    }
+}
+
+void PlaybackHandler::PlayMenu() {
+    int input;
+    bool loop = true;
+    mStopUiThread.store(false, memory_order::release);
+    mUiThread = std::thread([this, &loop]{PlayUIThread(loop);});
+    while (loop) {
+        cin.sync();
+        cin>>input;
+
+        switch (input) {
+            case 1: {
+                mAudioIO->togglePause();
+            }
+            case 2: {
+                mStopUiThread.store(true, memory_order::release);
+                stopPlayback();
+                loop = false;
+            } break;
+
+            case 10:
+            case 15:
+            case 30:
+            case -10:
+            case -15:
+            case -30:{
+                mAudioIO->doSeek(input);
+            } break;
+            default: {
+                cout<<"Invalid Input"<<endl;
+            }
+        }
+    }
+    mUiThread.detach();
+}
+
+void PlaybackHandler::PlayUIThread(bool &loop) {
+    while (!mStopUiThread.load(memory_order::acquire)) {
+        clrscrSafe();
+        if (mAudioIO->isPaused()) {
+            cout<<"Playback Paused ( " << makeTime(mAudioIO->getCurrentPlaybackTime())<<" \\ " << makeTime(mTracks[0]->getLengthS()) << ")\n"
+                "1 UnPause Playback \n"
+                "2 Stop Playback \n"
+                "(-/+) (10,15,30) move playback by inputted distance\n"
+                ">>";
+
+        } else {
+            cout<<"Recording ( "<< makeTime(mAudioIO->getCurrentPlaybackTime())<<" \\ " << makeTime(mTracks[0]->getLengthS()) << ")\n"
+                "1 Pause Playback \n"
+                "2 Stop Playback \n"
+                "(-/+) (10,15,30) move playback by inputted distance \n"
+                ">>";
+        }
+
+        if (!mAudioIO->isStreamRunning()) {
+            stopPlayback();
+            loop = false;
+            mStopUiThread = true;
+        }
+
+        using namespace chrono;
+        std::this_thread::sleep_for(1s);
+    }
+}
+
 
 void PlaybackHandler::TracksMenu() {
     int input;
@@ -327,7 +427,6 @@ std::string PlaybackHandler::buildFileName() {
 }
 
 void PlaybackHandler::createAudioTempDB() {
-    AudioIO::sAudioDB = std::make_shared<DBConnection>();
     AudioIO::sAudioDB->open(buildFileName());
 
 
@@ -354,6 +453,9 @@ void PlaybackHandler::createAudioTempDB() {
 //PLAYBACK STUFF
 //------------------------------------------------------------------------------------
 void PlaybackHandler::Record() {
+    if (!saveFile && !AudioIO::sAudioDB->DB()) {
+        createAudioTempDB();
+    }
     recordingSequences captureSequences;
     captureSequences.assign(mTracks.begin(), mTracks.end());
 
@@ -378,7 +480,49 @@ void PlaybackHandler::Record() {
 
 void PlaybackHandler::endRecording() {
     mAudioIO->stopStream();
+
+    string recordingStr = makeTime(mTracks[0]->getLengthS());
+
+    cout<<"successfully recorded "<<recordingStr<<endl;
+
+    waitForKeyPress();
 }
+
+void PlaybackHandler::Play() {
+    if (!saveFile && !AudioIO::sAudioDB->DB()) {
+        cout<<"Nothing to playback :("<<endl;
+        waitForKeyPress();
+        return;
+    }
+
+    constPlayableSequences playbackSequences;
+    playbackSequences.assign(mTracks.begin(), mTracks.end());
+
+    TransportSequence transports = {recordingSequences{}, playbackSequences};
+    audioIoStreamOptions options;
+    options.InDev = mAudioInDev;
+    options.OutDev = mAudioOutDev;
+    options.mSampleRate = mRate;
+    options.mCaptureChannels = 0;
+    options.mPlaybackChannels = 0;
+    options.mStartTime = 0;
+
+    for (int i = 0; i <mTracks.size(); ++i) {
+        if (mTracks[i]->isValid()) {
+            auto testVar = (unsigned int)(mTracks[i]->GetFirstChannelOut()+mTracks[i]->NChannels());
+            options.mPlaybackChannels = std::max(options.mPlaybackChannels, testVar);
+        }
+    }
+
+    if (mAudioIO->startStream(transports, 0, mTracks[0]->getLengthS(),options)) {
+        PlayMenu();
+    }
+}
+
+void PlaybackHandler::stopPlayback() {
+    mAudioIO->stopStream();
+}
+
 
 //Audio IO Dev stuff
 //------------------------------------------------------------------------------------
@@ -622,7 +766,7 @@ void PlaybackHandler::removeTrack(int trackNdx) {
 
 bool PlaybackHandler::changeTrackType(int trackNdx, AudioGraph::ChannelType type) {
     auto track = mTracks[trackNdx];
-    if (track->GetFirstChannelIN() +1 < mNumInputs && track->GetFirstChannelOut() +1 < mNumOutputs && type == AudioGraph::SterioChannel)  {
+    if ((track->GetFirstChannelIN() +1 < mNumInputs && track->GetFirstChannelOut() +1 < mNumOutputs && type == AudioGraph::SterioChannel)||type == AudioGraph::MonoChannel)  {
         track->changeTrackType(type);
 
         cout<<"Track has been changed to have "<<type+1<< " channels"<<endl;

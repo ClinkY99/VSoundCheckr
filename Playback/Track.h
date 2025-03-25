@@ -22,6 +22,8 @@ class Track
     double mRate;
     SampleFormat mFormat;
 
+    bool mAppendSecondNext = false;
+
     std::atomic<bool> mSolo;
     std::atomic<bool> mMute;
 
@@ -40,8 +42,12 @@ public:
 
     void setRate(double rate) {mRate = rate;} ;
 
+    double getLengthS(){return mSequences[0]->GetSampleCount().as_double()/mRate;}
+
     //overrides
     size_t NChannels() const override {return mNumChannels;}
+    bool appendSecond() const override {return mAppendSecondNext;}
+    void toggleAppendSecond() override {mAppendSecondNext = !mAppendSecondNext;}
     AudioGraph::ChannelType getChannelType() const override {return mNumChannels>1 ? AudioGraph::SterioChannel : AudioGraph::MonoChannel;}
     int GetFirstChannelIN() const override {return mFirstChannelNumIn;}
     int GetFirstChannelOut() const override {return mFirstChannelNumOut;}

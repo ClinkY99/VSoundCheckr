@@ -4,13 +4,16 @@
 
 #include "SampleBlock.h"
 
+#include <wx/debug.h>
+
 size_t SampleBlock::GetSamples(samplePtr dest, SampleFormat destFormat, size_t offset, size_t nSamples) {
     try{return DoGetSamples(dest, destFormat, offset, nSamples);}
     catch (...) {
         if (true) {
-            throw;
+            wxASSERT(false);
         }
         ClearSamples(dest,destFormat,0,nSamples);
+        return -1;
     }
 }
 
@@ -18,7 +21,7 @@ MaxMinRMS SampleBlock::GetMaxMinRMS(size_t start, size_t len) {
     try{return DoGetMaxMinRMS(start, len);}
     catch (...) {
         if (true) {
-            throw;
+            wxASSERT(false);
         }
         return {};
     }
@@ -27,7 +30,7 @@ MaxMinRMS SampleBlock::GetMaxMinRMS() {
     try{return DoGetMaxMinRMS();}
     catch (...) {
         if (true) {
-            throw;
+            wxASSERT(false);
         }
         return {};
     }
@@ -52,7 +55,7 @@ SampleBlockPtr SampleBlockFactory::CreateFromID(SampleFormat srcFormat, SampleBl
 SampleBlockPtr SampleBlockFactory::CreateSilent(size_t nSamples, SampleFormat srcFormat) {
     auto result = DoCreateSilent(nSamples, srcFormat);
     if (!result)
-        throw;
+        wxASSERT(false);
     return result;
 }
 

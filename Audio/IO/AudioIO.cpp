@@ -6,7 +6,9 @@
 
 #include "../../MemoryManagement/Math/float_cast.h"
 #include <cstdio>
+#include <fstream>
 #include <iostream>
+#include <iterator>
 #include <numeric>
 #include <wx/debug.h>
 #include <wx/wxcrtvararg.h>
@@ -18,6 +20,7 @@
 
 std::shared_ptr<DBConnection> AudioIOBase::sAudioDB;
 std::unique_ptr<AudioIOBase> AudioIOBase::ugAudioIO;
+
 
 #define stackAllocate(T, count) static_cast<T*>(alloca(count * sizeof(T)))
 
@@ -147,6 +150,31 @@ void AudioIoCallback::CallbackCompletion(int &callbackReturn, unsigned long len)
     callbackReturn = paComplete;
 }
 
+int AudioIoCallback::CallbackDoSeek() {
+    mAudioThreadSequenceBufferExchangeLoopRunning.store(false);
+    waitForAudioThreadStopped();
+
+    const auto time = mPlaybackShchedule.GetPolicy().OffsetSequenceTime(mPlaybackShchedule, mSeek);
+
+    mPlaybackShchedule.SetSequenceTime(time);
+    mSeek = 0.0;
+    for (auto &buffer : mPlaybackBuffers) {
+        const auto toDiscard = buffer->availForGet();
+        const auto discarded = buffer->discard( toDiscard );
+    }
+
+    mPlaybackShchedule.mTimeQueue.Prime(time);
+
+    processOnceAndWait();
+
+    mAudioThreadSequenceBufferExchangeLoopRunning.store(true);
+
+    waitForAudioThreadStarted();
+
+    return paContinue;
+}
+
+
 
 void AudioIoCallback::UpdateTimePosition(unsigned long framesPerBuffer) {
     mPlaybackShchedule.SetSequenceTime(mPlaybackShchedule.mTimeQueue.Consumer(framesPerBuffer, mRate));
@@ -155,6 +183,7 @@ void AudioIoCallback::UpdateTimePosition(unsigned long framesPerBuffer) {
 void AudioIoCallback::FillOutputBuffers(float* outputFloats, unsigned long framesPerBuffer) {
     const auto numPlaybackSequences = mPlayableSequences.size();
     const auto numPlaybackChannels = mNumPlaybackChannels;
+    const auto numMaxPlaybackChannels = mMaxPLaybackChannels;
 
     mMaxFramesOutput = 0;
 
@@ -163,6 +192,9 @@ void AudioIoCallback::FillOutputBuffers(float* outputFloats, unsigned long frame
         return;
     }
 
+    if (mSeek) {
+        mCallbackReturn = CallbackDoSeek();
+    }
     const auto toGet = std::min<size_t>(framesPerBuffer, CommonlyReadyPlayback());
 
     //--------- MEMORY ALLOCATIONS -----------
@@ -173,34 +205,41 @@ void AudioIoCallback::FillOutputBuffers(float* outputFloats, unsigned long frame
     }
     //-------- END OF MEMORY ALLOCATIONS ---------
 
+    int i = 0;
+    for (int x = 0; x < numMaxPlaybackChannels; ++x) {
+        if (mPlaybackMap[x]) {
+            decltype(framesPerBuffer) len = mPlaybackBuffers[i]->Get(reinterpret_cast<samplePtr>(tempBufs[i]) , floatSample, toGet);
 
-    for (int i = 0; i < numPlaybackChannels; ++i) {
-        decltype(framesPerBuffer) len = mPlaybackBuffers[i]->Get(reinterpret_cast<samplePtr>(tempBufs[i]) , floatSample, toGet);
+            if (len < framesPerBuffer) {
+                //Capturing edge case where cpu is sometimes behind playback
 
-        if (len < framesPerBuffer) {
-            //Capturing edge case where cpu is sometimes behind playback
+                memset(&tempBufs[i][len], 0, (framesPerBuffer - len)*sizeof(float));
+            }
 
-            memset(&tempBufs[i][len], 0, (framesPerBuffer - len)*sizeof(float));
-        }
+            mMaxFramesOutput = std::max(mMaxFramesOutput, len);
 
-        mMaxFramesOutput = std::max(mMaxFramesOutput, len);
+            len = mMaxFramesOutput;
 
-        len = mMaxFramesOutput;
+            if (len>0) {
+                for (int f = 0; f < len; ++f) {
+                    outputFloats[numMaxPlaybackChannels*f+x] = tempBufs[i][f];
+                }
+            }
 
-        if (len>0) {
-            for (int f = 0; f < len; ++f) {
-                outputFloats[numPlaybackChannels*f+i] += tempBufs[i][f];
+            CallbackCompletion(mCallbackReturn, len);
+            i++;
+        } else {
+            for (int f = 0; f < framesPerBuffer; ++f) {
+                outputFloats[numMaxPlaybackChannels*f+x] = 0;
             }
         }
-
-        CallbackCompletion(mCallbackReturn, len);
     }
 
     ClampBuffer(outputFloats, framesPerBuffer*numPlaybackChannels);
 
 }
 void AudioIoCallback::DrainInputBuffers(constSamplePtr inputBuffer, unsigned long framesPerBuffer, float* tempFloats) {
-    const auto numCaptureChannels = mNumCaptureChannels;
+    const auto numCaptureChannels = mMaxNumCaptureChannels;
 
     if (!inputBuffer || numCaptureChannels == 0) {
         return;
@@ -226,50 +265,70 @@ void AudioIoCallback::DrainInputBuffers(constSamplePtr inputBuffer, unsigned lon
     if (len<= 0) {
         return;
     }
-
+    int buffer = 0;
     for (unsigned n = 0; n < numCaptureChannels; ++n) {
         //Only save data from that input channel if it is needed
         if (!mCaptureMap[n].empty()) {
-            switch (mCaptureFormat) {
-                case floatSample: {
-                    auto inputFloats = (const float*) inputBuffer;
+            for (int x = 0; x < mCaptureMap[n].size(); ++x) {
+                switch (mCaptureFormat) {
+                    case floatSample: {
+                        auto inputFloats = (const float*) inputBuffer;
 
-                    for (unsigned i = 0; i < len; ++i) {
-                        tempFloats[i] = inputFloats[numCaptureChannels*i + n];
-                    }
-                } break;
+                        for (unsigned i = 0; i < len; ++i) {
+                            tempFloats[i] = inputFloats[numCaptureChannels*i + n];
+                        }
+                    } break;
 
-                case int24Sample: {
-                    //IN THEORY SHOULD NEVER GET HERE
-                    assert(false);
-                } break;
+                    case int24Sample: {
+                        //IN THEORY SHOULD NEVER GET HERE
+                        assert(false);
+                    } break;
 
-                case int16Sample: {
-                    auto inputShorts = (const short*) inputBuffer;
-                    short* tempShorts = (short* ) tempFloats;
+                    case int16Sample: {
+                        auto inputShorts = (const short*) inputBuffer;
+                        short* tempShorts = (short* ) tempFloats;
 
-                    for (unsigned i = 0; i < len; ++i) {
-                        float tmp = inputShorts[numCaptureChannels*i + n];
-                        tmp = std::clamp(tmp, -32768.0f, 32767.0f);
-                        tempShorts[i] = (short)tmp;
-                    }
-                } break;
+                        for (unsigned i = 0; i < len; ++i) {
+                            float tmp = inputShorts[numCaptureChannels*i + n];
+                            tmp = std::clamp(tmp, -32768.0f, 32767.0f);
+                            tempShorts[i] = (short)tmp;
+                        }
+                    } break;
+                }
+                mCaptureBuffers[buffer]->Put((samplePtr) tempFloats, mCaptureFormat, len);
+                mCaptureBuffers[buffer]->Flush();
+                buffer++;
             }
-            mCaptureBuffers[n]->Put((samplePtr) tempFloats, mCaptureFormat, len);
-            mCaptureBuffers[n]->Flush();
         }
     }
 }
 
 bool AudioIoCallback::BuildMaps() {
     bool result = false;
+    mCaptureMap.clear();
+    mPlaybackMap.clear();
     if (mNumCaptureChannels > 0) {
-        mCaptureMap.resize(mNumCaptureChannels);
+        mCaptureMap.resize(mMaxNumCaptureChannels);
         for (const auto& pSeq: mRecordingSequences) {
-            if (pSeq->isValid())
+            if (pSeq->isValid()) {
                 mCaptureMap[pSeq->GetFirstChannelIN()].push_back(pSeq);
+                if (pSeq->NChannels() ==2) {
+                    mCaptureMap[pSeq->GetFirstChannelIN()+pSeq->NChannels()-1].push_back(pSeq);
+                }
+            }
         }
         result = true;
+    }
+    if (mNumPlaybackChannels>0) {
+        mPlaybackMap.resize(mMaxPLaybackChannels);
+        for (auto pSeq : mPlayableSequences) {
+            if (pSeq->isValid()) {
+                mPlaybackMap[pSeq->GetFirstChannelOut()] = pSeq;
+                if (pSeq->NChannels() ==2) {
+                    mPlaybackMap[pSeq->GetFirstChannelOut()+pSeq->NChannels()-1] = pSeq;
+                }
+            }
+        }
     }
     return result;
 }
@@ -298,6 +357,7 @@ AudioIO::~AudioIO() {
 }
 
 void AudioIO::Init() {
+    sAudioDB = std::make_shared<DBConnection>();
     auto pAudioIO = new AudioIO();
     ugAudioIO.reset(pAudioIO);
     pAudioIO->startThread();
@@ -310,6 +370,10 @@ void AudioIO::DeInit() {
 void AudioIO::startThread() {
     mAudioThread = std::thread(&AudioIO::audioThread, std::ref(mKillAudioThread));
 }
+void AudioIO::togglePause() {
+    mPaused = !mPaused;
+}
+
 
 void AudioIoCallback::startAudioThread() {
     mAudioThreadSequenceBufferExchangeLoopRunning.store(true, std::memory_order_release);
@@ -382,6 +446,7 @@ int AudioIO::startStream(const TransportSequence &sequences, double t0, double t
 
     if (!AllocateBuffers(mRate))
         return 0;
+
     BuildMaps();
 
     if (startTime) {
@@ -406,7 +471,7 @@ int AudioIO::startStream(const TransportSequence &sequences, double t0, double t
     PaError err = mAudioStream->startStream();
 
     if (err != paNoError) {
-        printf("Error Starting the audio stream \n");
+        std::cout<<"Error Starting the audio stream \n";
 
         stopAudioThread();
 
@@ -424,6 +489,8 @@ int AudioIO::startStream(const TransportSequence &sequences, double t0, double t
 bool AudioIO::createPortAudioStream(const audioIoStreamOptions &options) {
     mNumPlaybackChannels = options.mPlaybackChannels;
     mNumCaptureChannels = options.mCaptureChannels;
+    mMaxNumCaptureChannels = Pa_GetDeviceInfo(options.InDev)->maxInputChannels;
+    mMaxPLaybackChannels = Pa_GetDeviceInfo(options.OutDev)->maxOutputChannels;
 
     bool usePlayback = false, useCapture = false;
     PaStreamParameters outputParameters {};
@@ -447,7 +514,7 @@ bool AudioIO::createPortAudioStream(const audioIoStreamOptions &options) {
 
         outputParameters.sampleFormat = paFloat32;
         outputParameters.hostApiSpecificStreamInfo = NULL;
-        outputParameters.channelCount = mNumPlaybackChannels;
+        outputParameters.channelCount = mMaxPLaybackChannels;
 
         const PaHostApiInfo* hostInfo = Pa_GetHostApiInfo(playbackDeviceInfo->hostApi);
         bool isWASAPI = (hostInfo && hostInfo->type == paWASAPI);
@@ -465,7 +532,7 @@ bool AudioIO::createPortAudioStream(const audioIoStreamOptions &options) {
 
         inputParameters.sampleFormat = paFloat32;
         inputParameters.hostApiSpecificStreamInfo = NULL;
-        inputParameters.channelCount = mNumCaptureChannels;
+        inputParameters.channelCount = mMaxNumCaptureChannels;
 
         inputParameters.suggestedLatency = latencyDuration/1000;
     }
@@ -476,6 +543,8 @@ bool AudioIO::createPortAudioStream(const audioIoStreamOptions &options) {
         useCapture? &inputParameters : nullptr,
         usePlayback? &outputParameters: nullptr,
         mRate, AudioCallback);
+
+    mHardwarePlaybackLatency = lrint(mAudioStream->getOutputLatency()*mRate);
 
     return err == paNoError;
 }
@@ -518,7 +587,11 @@ void AudioIO::stopStream() {
     }
 
     mNumCaptureChannels = 0;
+    mMaxNumCaptureChannels = 0;
     mNumPlaybackChannels = 0;
+    mMaxPLaybackChannels = 0;
+    mCaptureMap.clear();
+    mPlaybackMap.clear();
 }
 
 
@@ -587,6 +660,9 @@ bool AudioIO::AllocateBuffers(double sampleRate) {
 
                 //Make the playback q min a multiple of playbacksamples
                 mPlaybackQueueMinimum = mPlaybackSamplesToCopy * ((mPlaybackQueueMinimum + mPlaybackSamplesToCopy -1)/mPlaybackSamplesToCopy);
+
+                const auto timeQueueSize = 1+(bufferLength+TimeQueueGrainSize-1)/TimeQueueGrainSize;
+                mPlaybackShchedule.mTimeQueue.Init(timeQueueSize);
             }
             if (mNumCaptureChannels>0) {
                 auto bufferLength = (size_t)lrint(mRate*mCaptureBufferSecs);
@@ -639,7 +715,7 @@ size_t AudioIO::GetCommonlyAvailCapture() {
 }
 
 size_t AudioIO::GetCommonlyFreePlayback() {
-    return MinValues(mPlaybackBuffers, &audioBuffer::availForGet);
+    return MinValues(mPlaybackBuffers, &audioBuffer::availForPut);
 }
 
 size_t AudioIO::GetCommonlyWrittenForPlayback() {
@@ -716,11 +792,7 @@ void AudioIO::DrainRecordBuffers() {
             size_t currChannelNum = 0;
 
             for (size_t i = 0; i < mCaptureBuffers.size(); i++) {
-                while (mCaptureMap[currChannelNum].empty()) {
-                    currChannelNum++;
-                }
                 for (auto pSeq: mCaptureMap[currChannelNum]) {
-
                     size_t discarded = 0;
 
                     if (!mRecordingSchedule.mLatencyCorrected) {
@@ -780,13 +852,16 @@ void AudioIO::DrainRecordBuffers() {
                     }
 
                     newBlocks = ((pSeq) -> append(iChannel, temp.ptr(), format, size, 1, narrowestSampleFormat)) || newBlocks;
+
+                    if (pSeq->NChannels() == 2) {
+                        pSeq->toggleAppendSecond();
+                    }
                 }
-
-                mRecordingSchedule.mPosition += avail/mRate;
-                mRecordingSchedule.mLatencyCorrected = latencyCorrected;
-
-
+                currChannelNum++;
             }
+            mRecordingSchedule.mPosition += avail/mRate;
+            mRecordingSchedule.mLatencyCorrected = latencyCorrected;
+
         }
     }
 }
@@ -799,7 +874,7 @@ void AudioIO::FillPlayBuffers() {
     auto nAvail = GetCommonlyFreePlayback();
 
     //Dont Waste cpu processing if not enough sampels to cpy
-    if (nAvail> mPlaybackSamplesToCopy) {
+    if (nAvail< mPlaybackSamplesToCopy) {
         return;
     }
 
@@ -871,13 +946,15 @@ bool AudioIO::ProcessPlaybackSlices(size_t avail) {
                     //ensuring enough space in the buffer
                     buffer.resize(buffer.size() + frames, 0);
 
-                    pSeq->GetFloats(i, (samplePtr) buffer.data(), pos, toProduce, mPlaybackShchedule.ReversedTime());
+                    pSeq->GetFloats(i, (samplePtr) buffer.data()+appendPos, pos, toProduce, mPlaybackShchedule.ReversedTime());
                 }
 
                 iBuffer+=nChannels;
             }
         }
         avail-=frames;
+
+
     } while (avail);
 
     //processing fx (mute/solo)
@@ -906,10 +983,16 @@ bool AudioIO::ProcessPlaybackSlices(size_t avail) {
         }
     }
 
+    auto samplesAvailable = std::min_element(
+      mProcessingBuffers.begin(),
+      mProcessingBuffers.end(),
+      [](auto& first, auto& second) { return first.size() < second.size(); }
+    )->size();
+
     //Cleanup for processing buffers
     auto cleanup = finally([&] {
-       for (auto buffer : mProcessingBuffers) {
-           buffer.clear();
+       for (auto &buffer : mProcessingBuffers) {
+           buffer.erase(buffer.begin(), buffer.begin()+samplesAvailable);
        }
     });
 
@@ -917,11 +1000,10 @@ bool AudioIO::ProcessPlaybackSlices(size_t avail) {
         int iBuffer = 0;
 
         for (auto buffer : mProcessingBuffers) {
-            const auto offset = processingBufferOffsets[iBuffer];
             mPlaybackBuffers[iBuffer++]->Put(
-                reinterpret_cast<constSamplePtr>(buffer.data()) + offset*sizeof(float),
+                reinterpret_cast<constSamplePtr>(buffer.data()),
                 floatSample,
-                avail);
+                samplesAvailable);
         }
     }
 
