@@ -4,6 +4,7 @@
 
 #include "Track.h"
 
+#include <iostream>
 #include <wx/debug.h>
 
 #include "../Visual/PlaybackHandler.h"
@@ -58,5 +59,70 @@ void Track::updateSequences() {
     }
 }
 
+//Saving
+
+void Track::save() {
+    auto stmt = mSaveConn->Prepare("INSERT INTO tracks (trackType, firstChannelIn, firstChannelOut,"
+                                   "                        sampleRate, blocks)"
+                                   "                VALUES(?1, ?2, ?3, ?4, ?5);");
 
 
+    std::vector<int> blocks;
+    //Using number of blocks for the first one, as both sequences have the same number of blocks
+    for (int i = 0; i < mSequences[0]->getBlockCount(); ++i) {
+        blocks.push_back(mSequences[0]->getBlockIDAtIndex(i));
+        if (NChannels()>1) {
+            blocks.push_back(mSequences[1]->getBlockIDAtIndex(i));
+        }
+    }
+
+    size_t blocksBytes = sizeof(int)*blocks.size();
+
+    if (sqlite3_bind_int(stmt, 1, mNumChannels) ||
+        sqlite3_bind_int(stmt, 2, mFirstChannelNumIn) ||
+        sqlite3_bind_int(stmt, 3, mFirstChannelNumOut) ||
+        sqlite3_bind_double(stmt, 4, mRate) ||
+        sqlite3_bind_blob(stmt, 5, blocks.data(), blocksBytes, SQLITE_STATIC)) {
+        wxASSERT(false);
+    }
+
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        //STEP FAILED (replace with log)
+        wxASSERT(false);
+    }
+
+    sqlite3_finalize(stmt);
+}
+
+void Track::load(int id) {
+    std::cout<<"loading Track"<<id<<std::endl;
+    auto stmt = mSaveConn->Prepare("SELECT trackType, firstChannelIn, firstChannelOut, sampleRate, blocks "
+                                   "FROM tracks WHERE trackNum = ?1;");
+
+    if (sqlite3_bind_int(stmt, 1, id)) {
+        wxASSERT(false);
+    }
+    if (sqlite3_step(stmt) != SQLITE_ROW) {
+        wxASSERT(false);
+    }
+
+
+    mNumChannels = sqlite3_column_int(stmt, 0);
+    mFirstChannelNumIn = sqlite3_column_int(stmt, 1);
+    mFirstChannelNumOut = sqlite3_column_int(stmt, 2);
+    mRate = sqlite3_column_double(stmt, 3);
+    std::vector<int> blockIDs;
+    auto bytes = sqlite3_column_bytes(stmt, 4);
+    blockIDs.resize(bytes/sizeof(int));
+    memcpy(blockIDs.data(), sqlite3_column_blob(stmt, 4), bytes);
+
+    updateSequences();
+
+    for (int i = 0; i < NChannels(); ++i) {
+        for (int x = 0; x < blockIDs.size()/NChannels(); ++x) {
+            mSequences[i]->loadBlockFromID(blockIDs[x*NChannels()+i]);
+        }
+    }
+
+    std::cout<<"finished loading track num: "<<id<<std::endl;
+}

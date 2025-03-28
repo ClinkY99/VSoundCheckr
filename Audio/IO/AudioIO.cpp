@@ -31,6 +31,7 @@ AudioIOStream::AudioIOStream(PaError &err, PaStreamParameters *inputParams, PaSt
 
 AudioIOStream::~AudioIOStream() {
     Pa_CloseStream(mStream);
+    mStream = nullptr;
 }
 
 
@@ -158,6 +159,9 @@ int AudioIoCallback::CallbackDoSeek() {
 
     mPlaybackShchedule.SetSequenceTime(time);
     mSeek = 0.0;
+
+    mSamplePos = (sampleCount)(time*mRate);
+
     for (auto &buffer : mPlaybackBuffers) {
         const auto toDiscard = buffer->availForGet();
         const auto discarded = buffer->discard( toDiscard );
@@ -346,8 +350,10 @@ AudioIO::~AudioIO() {
     //Handle Exiting IO
 
     //Kill Stream & callback
-    if (!mAudioStream->getStreamStillRunning()) {
-        mAudioStream->endStream();
+    if (mAudioStream) {
+        if (!mAudioStream->getStreamStillRunning()) {
+            mAudioStream->endStream();
+        }
     }
 
 
@@ -449,11 +455,14 @@ int AudioIO::startStream(const TransportSequence &sequences, double t0, double t
 
     BuildMaps();
 
+    mSamplePos = sampleCount(t0*mRate);
+
     if (startTime) {
         auto time = *startTime;
 
         mPlaybackShchedule.SetSequenceTime(time);
         mPlaybackShchedule.GetPolicy().OffsetSequenceTime(mPlaybackShchedule, 0);
+        mSamplePos = sampleCount(time*mRate);
     }
 
     mPlaybackShchedule.mTimeQueue.Prime(mPlaybackShchedule.GetSequenceTime());
@@ -478,6 +487,10 @@ int AudioIO::startStream(const TransportSequence &sequences, double t0, double t
         startStreamCleanup();
 
         return 0;
+    }
+
+    if (isPaused()) {
+        mPaused = false;
     }
 
     commit = true;
@@ -539,26 +552,28 @@ bool AudioIO::createPortAudioStream(const audioIoStreamOptions &options) {
 
     PaError err = paNoError;
 
-    mAudioStream = new AudioIOStream(err,
+    mAudioStream = std::make_unique<AudioIOStream>(err,
         useCapture? &inputParameters : nullptr,
         usePlayback? &outputParameters: nullptr,
         mRate, AudioCallback);
 
-    mHardwarePlaybackLatency = lrint(mAudioStream->getOutputLatency()*mRate);
+    if (!err) {
+        mHardwarePlaybackLatency = lrint(mAudioStream->getOutputLatency()*mRate);
+    }
 
     return err == paNoError;
 }
 
 void AudioIO::stopStream() {
 
-    if (mAudioStream == NULL)
+    if (mAudioStream == nullptr)
         return;
     stopAudioThread();
 
     if (mAudioStream->getStreamStillRunning()) {
         mAudioStream->abortStream();
     }
-    mAudioStream = NULL;
+    mAudioStream = nullptr;
 
     waitForAudioThreadStopped();
 
@@ -592,6 +607,8 @@ void AudioIO::stopStream() {
     mMaxPLaybackChannels = 0;
     mCaptureMap.clear();
     mPlaybackMap.clear();
+
+
 }
 
 
@@ -911,15 +928,13 @@ void AudioIO::FillPlayBuffers() {
     }
 }
 
-sampleCount AudioIO::getWritePos(){
-    return ((size_t) (mPlaybackShchedule.mTimeQueue.GetLastTime()*mRate));
-}
-
 bool AudioIO::ProcessPlaybackSlices(size_t avail) {
     auto policy = mPlaybackShchedule.GetPolicy();
 
     bool done = false;
     bool progress = false;
+
+
 
     const auto processingBufferOffsets = stackAllocate(size_t, mProcessingBuffers.size());
     for(unsigned n = 0; n < mProcessingBuffers.size(); ++n)
@@ -929,7 +944,7 @@ bool AudioIO::ProcessPlaybackSlices(size_t avail) {
         const auto &[frames, toProduce] = slice;
         progress = progress || toProduce >0;
 
-        auto pos = getWritePos();
+        auto pos = mSamplePos;
 
         mPlaybackShchedule.mTimeQueue.Producer(mPlaybackShchedule, slice);
 
@@ -951,6 +966,7 @@ bool AudioIO::ProcessPlaybackSlices(size_t avail) {
 
                 iBuffer+=nChannels;
             }
+            mSamplePos = pos+toProduce;
         }
         avail-=frames;
 

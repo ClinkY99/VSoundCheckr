@@ -139,6 +139,8 @@ protected:
     std::vector<std::vector<float>> mProcessingBuffers;
 
     size_t mLostSamples;
+
+    sampleCount mSamplePos;
     //audioBuffer mMaster;
 
     //buffer Settings
@@ -183,7 +185,7 @@ public:
 
     void doSeek(double amount) {mSeek = amount;}
 
-    double getCurrentPlaybackTime(){return mPlaybackShchedule.mTimeQueue.GetLastTime();}
+    double getCurrentPlaybackTime(){return mPlaybackShchedule.mCurrentTime;}
     double getRecordingTime(){return mRecordingSchedule.mPosition;}
     //Playback stuff
 
@@ -233,7 +235,7 @@ class AudioIO
     //also for reading and writing the audio... output buffer should be filled by this
     //output should be handled by callback but input is taxing so maybe threading will be better so i dont delay audio proscessing
 
-    AudioIOStream* mAudioStream;
+    std::unique_ptr<AudioIOStream> mAudioStream;
 
     size_t mPlaybackQueueMinimum;
 
@@ -277,8 +279,6 @@ private:
     void DrainRecordBuffers();
     void FillPlayBuffers();
     bool ProcessPlaybackSlices(size_t avail);
-
-    sampleCount getWritePos();
 
 //Static Member Functions
 public:

@@ -120,13 +120,13 @@ void SqliteSampleBlock::load(SampleBlockID id) {
     }
 
     //Complete Statement
-    if (sqlite3_step(stmt) != SQLITE_DONE) {
+    if (sqlite3_step(stmt) != SQLITE_ROW) {
         //EXECUTE FAIlED (replace with log)
         wxASSERT(false);
     }
 
     mBlockID = id;
-    mSampleFormat = (SampleFormat) sqlite3_column_int(stmt, 0);
+    mSampleFormat = floatSample;
     mSumMin = sqlite3_column_double(stmt, 1);
     mSumMax = sqlite3_column_double(stmt, 2);
     mSumRMS = sqlite3_column_double(stmt, 3);
@@ -465,13 +465,13 @@ size_t SqliteSampleBlock::GetBlob(sqlite3_stmt *stmt, void *dest, SampleFormat d
     srcOffset = std::min(srcOffset, BlobBytes);
     minBytes = std::min(srcBytes, BlobBytes-srcOffset);
 
-    wxASSERT(minBytes+srcBytes <= BlobBytes);
+    wxASSERT(minBytes+srcOffset <= BlobBytes);
 
-    std::vector<float> test;
-    test.resize(minBytes/SAMPLE_SIZE(srcFormat));
+    // std::vector<float> test;
+    // test.resize(minBytes/SAMPLE_SIZE(srcFormat));
 
     CopySamples(src +srcOffset, srcFormat, (samplePtr) dest, destFormat, minBytes/SAMPLE_SIZE(srcFormat), none);
-    CopySamples(src +srcOffset, srcFormat, (samplePtr) test.data(), destFormat, minBytes/SAMPLE_SIZE(srcFormat), none);
+    // CopySamples(src +srcOffset, srcFormat, (samplePtr) test.data(), destFormat, minBytes/SAMPLE_SIZE(srcFormat), none);
 
     dest = ((samplePtr)dest) + minBytes;
     if (srcBytes-minBytes) {

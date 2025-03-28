@@ -151,8 +151,10 @@ struct PlaybackSchedule {
     double GetSequenceTime() const
     { return mTime.load(std::memory_order_relaxed); }
 
-    void SetSequenceTime( double time )
-    { mTime.store(time, std::memory_order_relaxed); }
+    void SetSequenceTime( double time ) {
+        mTime.store(time, std::memory_order_relaxed);
+        mCurrentTime = time;
+    }
 
     // Convert time between mT0 and argument to real duration, according to
     // time track if one is given; result is always nonnegative

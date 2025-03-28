@@ -49,7 +49,7 @@ double PlaybackPolicy::OffsetSequenceTime(PlaybackSchedule &schedule, double off
 }
 
 PlaybackSlice PlaybackPolicy::GetPlaybackSlice(PlaybackSchedule &schedule, size_t available) {
-    const auto realTimeRemaining = schedule.RealTimeRemaining();
+    const auto realTimeRemaining = std::max(0.0, schedule.RealTimeRemaining());
     auto frames = available;
     auto toProduce = frames;
     double deltaT = frames/mRate;
@@ -114,7 +114,7 @@ double PlaybackSchedule::RealDuration(double trackTime1) const {
 }
 
 double PlaybackSchedule::RealTimeRemaining() const {
-    return mCurrentTime-mT1;
+    return mT1-mCurrentTime;
 }
 
 void PlaybackSchedule::RealTimeRestart() {
@@ -123,6 +123,7 @@ void PlaybackSchedule::RealTimeRestart() {
 
 void PlaybackSchedule::RealTimeAdvance(double increment) {
     mCurrentTime += increment;
+    mCurrentTime = std::clamp(mCurrentTime, 0.0, mT1);
 }
 
 void PlaybackSchedule::TimeQueue::Init(size_t size) {

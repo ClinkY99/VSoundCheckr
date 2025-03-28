@@ -8,31 +8,38 @@
 
 #include "../Audio/AudioData/SqliteSampleBlock.h"
 #include "../Audio/IO/AudioIO.h"
+#include "../Saving/SaveFileDB.h"
 
 
-class PlaybackHandler {
+class PlaybackHandler
+    : public SaveBase{
+
     PaDeviceIndex mAudioInDev = 0;
     PaDeviceIndex mAudioOutDev = 0;
     PaHostApiIndex mHostApi = 0;
 
-    FilePath saveFile;
+    FilePath mSaveFile;
 
     AudioIO *mAudioIO = AudioIO::Get();
 
     size_t mRate;
-    size_t mNumInputs;
-    size_t mNumOutputs;
+    size_t mNumInputs = 0;
+    size_t mNumOutputs = 0;
 
     Tracks mTracks;
 
     std::atomic_bool mStopUiThread = false;
     std::thread mUiThread;
 
+    bool mUnSaved = false;
+
 public:
     ~PlaybackHandler();
 
     void StartCApp();
-    void Save(){}
+    void newSave();
+    void save() override;
+    void load(int = 0) override;
 
     //Playback
     void Play();
@@ -59,6 +66,7 @@ public:
     void changeSRate();
 
 private:
+
     void MenuAPP();
     void TracksMenu();
     void AudioSettingsMenu();
@@ -67,9 +75,11 @@ private:
     void RecordUIThread();
     void PlayMenu();
     void PlayUIThread(bool &loop);
+    void SaveMenu();
 
     std::string buildFileName();
     void createAudioTempDB();
+    void copyAudioTempDBToMainSave() const;
 
     bool attemptPopulateAutoIOTrack(int trackIndex, bool fullReset = false);
     bool attemptPopulateIn(int trackNdx);

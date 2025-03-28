@@ -49,7 +49,7 @@ public:
 
     sqlite3_stmt* Prepare(statementID id, const char* sql);
 
-    int open(const FilePath fileName);
+    int open(const FilePath fileName, bool newFile = true);
     bool close();
 
     //sqlite mode setting
@@ -63,7 +63,7 @@ private:
     void checkpointThread(sqlite3* db, FilePath fileName);
     static int checkpointHook(void * data, sqlite3 * db, const char * schema, int pages);
 
-    int openStepByStep(const FilePath fileName);
+    int openStepByStep(const FilePath fileName, bool newFile);
 
 
 

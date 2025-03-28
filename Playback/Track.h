@@ -7,12 +7,14 @@
 #include <atomic>
 
 #include "../Audio/AudioData/Sequence.h"
+#include "../Saving/SaveFileDB.h"
 #include "Sequences/AudioIOSequences.h"
 
 
 class Track
     : public RecordingSequence
-    , public PlaybackSequence {
+    , public PlaybackSequence
+    , public SaveBase {
 
     int mFirstChannelNumIn = -1;
     int mFirstChannelNumOut = -1;
@@ -43,6 +45,10 @@ public:
     void setRate(double rate) {mRate = rate;} ;
 
     double getLengthS(){return mSequences[0]->GetSampleCount().as_double()/mRate;}
+
+    //saving
+    void save() override;
+    void load(int id) override;
 
     //overrides
     size_t NChannels() const override {return mNumChannels;}

@@ -5,6 +5,11 @@
 #include "PlaybackHandler.h"
 
 #include <iostream>
+#include <wx/filedlg.h>
+#include <wx/translation.h>
+#include <wx/msw/filedlg.h>
+
+#include "AppBase.h"
 
 using namespace std;
 
@@ -36,15 +41,17 @@ bool PlaybackHandler::YNConfirm() {
 }
 
 void clrscrSafe() {
-    // #if defined _WIN32
-    //     system("cls");
-    //     //clrscr(); // including header file : conio.h
-    // #elif defined (__LINUX__) || defined(__gnu_linux__) || defined(__linux__)
-    //     system("clear");
-    //     //std::cout<< u8"\033[2J\033[1;1H"; //Using ANSI Escape Sequences
-    // #elif defined (__APPLE__)
-    //     system("clear");
-    // #endif
+#ifdef NDEBUG
+    #if defined _WIN32
+        system("cls");
+        //clrscr(); // including header file : conio.h
+    #elif defined (__LINUX__) || defined(__gnu_linux__) || defined(__linux__)
+        system("clear");
+        //std::cout<< u8"\033[2J\033[1;1H"; //Using ANSI Escape Sequences
+    #elif defined (__APPLE__)
+        system("clear");
+    #endif
+#endif
 }
 
 void PlaybackHandler::clrscr() {
@@ -75,6 +82,7 @@ string makeTime(size_t seconds) {
 //------------------------------------------------------------------------------------
 void PlaybackHandler::StartCApp() {
     AudioIO::Init();
+    mSaveConn = make_shared<SaveFileDB>();
 
     mAudioIO = AudioIO::Get();
     Pa_Initialize();
@@ -85,8 +93,6 @@ void PlaybackHandler::StartCApp() {
     mNumOutputs = Pa_GetDeviceInfo(mAudioOutDev)->maxOutputChannels;
     mRate = Pa_GetDeviceInfo(mAudioInDev)->defaultSampleRate;
     updateSRates();
-
-    newTrack();
 
     clrscr();
     cout<<"Welcome to the <INSERT NAME HERE> recording software. \n At the moment the ui is purely console based, but we are workign on a physical UI"<<endl;
@@ -121,7 +127,16 @@ void PlaybackHandler::MenuAPP() {
             case 3: {
                 AudioSettingsMenu();
             } break;
+            case 4: {
+                SaveMenu();
+            } break;
             case 0: {
+                if (mUnSaved) {
+                    cout<<"Current session is unsaved\n Would you like to save session? ";
+                    if (YNConfirm()) {
+                        save();
+                    }
+                }
                 cout<<"Are you sure you want to exit? ";
                 if (YNConfirm()) {
                     loop = false;
@@ -262,7 +277,7 @@ void PlaybackHandler::PlayUIThread(bool &loop) {
                 ">>";
 
         } else {
-            cout<<"Recording ( "<< makeTime(mAudioIO->getCurrentPlaybackTime())<<" \\ " << makeTime(mTracks[0]->getLengthS()) << ")\n"
+            cout<<"Playing Back Audio ( "<< makeTime(mAudioIO->getCurrentPlaybackTime())<<" \\ " << makeTime(mTracks[0]->getLengthS()) << ")\n"
                 "1 Pause Playback \n"
                 "2 Stop Playback \n"
                 "(-/+) (10,15,30) move playback by inputted distance \n"
@@ -303,8 +318,9 @@ void PlaybackHandler::TracksMenu() {
             } break;
             case 2: {
                 int newTracks;
-                cout<<"Amount of new tracks you would like to create: \n>>";
+                cout<<"Amount of new tracks you would like to create: \n(Current audio device supports "<< std::min(mNumInputs, mNumOutputs) <<" IO Channels)\n>>";
                 cin>>newTracks;
+                mUnSaved = true;
                 for (int i = 0; i < newTracks; ++i) {
                     newTrack();
                 }
@@ -312,6 +328,7 @@ void PlaybackHandler::TracksMenu() {
             } break;
             case 3: {
                 int TrackNdx = inputTrackNum();
+                mUnSaved = true;
                 removeTrack(TrackNdx);
             } break;
             case 4: {
@@ -320,6 +337,7 @@ void PlaybackHandler::TracksMenu() {
                     int channelNum;
                     cout<<"Enter the new input Channel: (Max: "<<mNumInputs<<") \n>>";
                     cin>>channelNum;
+                     mUnSaved = true;
                     changeInChannels(TrackNDX, channelNum-1);
                 } else {
                     cout<<"No Tracks have been created, please create a track first"<<endl;
@@ -331,6 +349,7 @@ void PlaybackHandler::TracksMenu() {
                     int channelNum;
                     cout<<"Enter the new output Channel: (Max: "<<mNumOutputs<<") \n>>";
                     cin>>channelNum;
+                    mUnSaved = true;
                     changeOutChannels(TrackNDX, channelNum-1);
                 }
                 else {
@@ -384,15 +403,19 @@ void PlaybackHandler::AudioSettingsMenu() {
 
         switch (input) {
             case 1: {
+                mUnSaved = true;
                 changeAudioAPI();
             } break;
             case 2: {
+                mUnSaved = true;
                 changeAudioInDev();
             } break;
             case 3: {
+                mUnSaved = true;
                 changeAudioOutDev();
             } break;
             case 4: {
+                mUnSaved = true;
                 changeSRate();
             } break;
             case 0: {
@@ -406,6 +429,47 @@ void PlaybackHandler::AudioSettingsMenu() {
     }
 }
 
+void PlaybackHandler::SaveMenu() {
+    int input;
+    bool loop = true;
+    while (loop) {
+        clrscr();
+        cout<<"Save Menu: \n"
+              "1 Save \n"
+              "2 New Session \n"
+              "3 Load Session \n"
+              "0 Back \n"
+              ">>";
+        cin>>input;
+
+        switch (input) {
+            case 1: {
+                save();
+            } break;
+            case 2: {
+                save();
+            } break;
+            case 3: {
+                if (mUnSaved) {
+                    cout<<"Current session is unsaved\n Would you like to save session? ";
+                    if (YNConfirm()) {
+                        save();
+                    }
+                }
+                load();
+            } break;
+            case 0: {
+                loop = false;
+            } break;
+            default: {
+                cout<<"Not supported ATM"<<endl;
+                waitForKeyPress();
+            } break;
+        }
+    }
+}
+
+
 //SAVING STUFF
 //------------------------------------------------------------------------------------
 
@@ -417,7 +481,7 @@ std::string PlaybackHandler::buildFileName() {
 
     strftime(buf, sizeof(buf), "%Y-%m-%d.%H-%M", &tstruct);
 
-    string fileName = "../tmp/";
+    string fileName = "./tmp/";
     mkdir(fileName.c_str());
     fileName += "Unsaved Session ";
     fileName += buf;
@@ -449,11 +513,181 @@ void PlaybackHandler::createAudioTempDB() {
     }
 }
 
+void PlaybackHandler::newSave() {
+    wxFileDialog saveFileDialog(nullptr, _("Choose Save Location"), "","", "<insert name> session files (*.audio) | *.audio", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+
+    if (saveFileDialog.ShowModal() == wxID_CANCEL) {
+        cout<<"Canceled New Save"<<endl;
+        waitForKeyPress();
+        return;
+    }
+
+    mSaveConn->close();
+
+    if (!mSaveConn->newSave(saveFileDialog.GetPath().c_str())) {
+        cout<<"Failed to create a new save file in specified destination"<<endl;
+    }
+
+    if (AudioIO::sAudioDB->DB()) {
+        copyAudioTempDBToMainSave();
+    }
+    AudioIO::sAudioDB->open(mSaveConn->GetSavePath());
+
+    save();
+}
+
+
+void PlaybackHandler::save() {
+    const char* sql = "DELETE FROM tracks;";
+    if (sqlite3_exec(mSaveConn->DB(), sql, nullptr, nullptr, nullptr)!=SQLITE_OK) {
+        std::cerr<<"Failed to truncate audio DB, "<<sqlite3_errmsg(mSaveConn->DB())<<std::endl;
+        assert(false);
+    }
+
+    for (const auto& track : mTracks) {
+        track->mSaveConn = mSaveConn;
+        track->save();
+    }
+
+    sql = "DELETE FROM settings;";
+    if (sqlite3_exec(mSaveConn->DB(), sql, nullptr, nullptr, nullptr)!=SQLITE_OK) {
+        cerr<<"Failed to truncate audio DB, "<<sqlite3_errmsg(mSaveConn->DB())<<endl;
+        assert(false);
+    }
+
+    auto stmt = mSaveConn->Prepare("INSERT INTO settings (hostAPI, inDev, outDev, sRate)"
+                                       "                           VALUES(?1, ?2, ?3, ?4);");
+    if (sqlite3_bind_int(stmt, 1, mHostApi) ||
+        sqlite3_bind_int(stmt, 2, mAudioInDev) ||
+        sqlite3_bind_int(stmt, 3, mAudioOutDev) ||
+        sqlite3_bind_double(stmt, 4, mRate)) {
+        wxASSERT(false);
+        }
+
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        wxASSERT(false);
+    }
+
+    sqlite3_finalize(stmt);
+    mUnSaved = false;
+}
+
+void PlaybackHandler::load(int) {
+    wxFileDialog saveFileDialog(nullptr, _("Choose Session File"), "","", "<insert name> session files (*.audio) | *.audio", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+
+    if (saveFileDialog.ShowModal() == wxID_CANCEL) {
+        cout<<"Canceled opening Save"<<endl;
+        waitForKeyPress();
+        return;
+    }
+    mSaveConn->close();
+
+    if (mSaveConn->open(saveFileDialog.GetPath().c_str(), false)) {
+        cout<<"Failed to open save file in specified destination"<<endl;
+        return;
+    }
+    if (AudioIO::sAudioDB->DB()) {
+        AudioIO::sAudioDB->close();
+    }
+    AudioIO::sAudioDB->open(saveFileDialog.GetPath().c_str(), false);
+
+    auto stmt = mSaveConn->Prepare("SELECT hostAPI, inDev, outDev, sRate FROM settings WHERE _ = 1;");
+
+    if (sqlite3_step(stmt) != SQLITE_ROW) {
+        cerr<<"Failed to execute stmt"<<endl;
+    }
+
+    mHostApi = sqlite3_column_int(stmt, 0);
+    mAudioInDev = sqlite3_column_int(stmt, 1);
+    mAudioOutDev = sqlite3_column_int(stmt, 2);
+    mRate = sqlite3_column_double(stmt, 3);
+
+    sqlite3_finalize(stmt);
+
+    stmt = mSaveConn->Prepare("SELECT Count(*) FROM tracks;");
+
+    if (sqlite3_step(stmt) != SQLITE_ROW) {
+        cerr<<"Failed to execute stmt, err: "<<sqlite3_errmsg(mSaveConn->DB())<<endl;
+    }
+
+    int numTracks = sqlite3_column_int(stmt, 0);
+
+    mTracks.clear();
+    mTracks.resize(numTracks);
+    for (int i = 0; i < numTracks; ++i) {
+        mTracks[i] = make_shared<Track>(mRate, floatSample);
+        mTracks[i]->mSaveConn = mSaveConn;
+        mTracks[i]->load(i+1);
+    }
+
+    sqlite3_finalize(stmt);
+
+    cout<<"loading complete"<<endl;
+
+    mUnSaved = false;
+}
+
+
+void PlaybackHandler::copyAudioTempDBToMainSave() const {
+    auto tmpDB = AudioIO::sAudioDB->DB();
+    auto saveDB = mSaveConn->DB();
+
+    const char* sql = "SELECT sampleformat, summin, summax, sumrms,"
+        "                              samples, length(samples), summary256, length(summary256), summary64k, length(summary64k) FROM sampleBlocks;";
+    sqlite3_stmt* stmt;
+
+
+    if (sqlite3_prepare_v2(tmpDB, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        cerr<<"Failed to prepare statement 2, err: "<< sqlite3_errmsg(tmpDB)<<endl;
+    }
+
+    string insertQuery = "INSERT INTO sampleBlocks (sampleformat, summin, summax, sumrms,"
+        "                              samples, summary256, summary64k)"
+        "                              VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7);";
+
+    sqlite3_stmt* insertStmt;
+
+    if (sqlite3_prepare_v2(saveDB, insertQuery.c_str(), -1, &insertStmt, nullptr) != SQLITE_OK) {
+        cerr<<"Failed to prepare insert statement, err: "<< sqlite3_errmsg(saveDB)<<endl;
+        return;
+    }
+
+    while (sqlite3_step(stmt) != SQLITE_DONE) {
+        sqlite3_bind_int(insertStmt, 1, sqlite3_column_int(stmt, 0));
+        sqlite3_bind_double(insertStmt, 2, sqlite3_column_double(stmt, 1));
+        sqlite3_bind_double(insertStmt, 3, sqlite3_column_double(stmt, 2));
+        sqlite3_bind_double(insertStmt, 4, sqlite3_column_double(stmt, 3));
+        sqlite3_bind_blob(insertStmt, 5, sqlite3_column_blob(stmt, 4), sqlite3_column_int(stmt, 5), SQLITE_TRANSIENT);
+        sqlite3_bind_blob(insertStmt, 6, sqlite3_column_blob(stmt, 6), sqlite3_column_int(stmt, 7), SQLITE_TRANSIENT);
+        sqlite3_bind_blob(insertStmt, 7, sqlite3_column_blob(stmt, 8), sqlite3_column_int(stmt, 9), SQLITE_TRANSIENT);
+
+        if (sqlite3_step(insertStmt) != SQLITE_DONE) {
+            cerr<<"Failed to execute insert statement, err: "<< sqlite3_errmsg(saveDB)<<endl;
+            return;
+        }
+
+        sqlite3_clear_bindings(insertStmt);
+        sqlite3_reset(insertStmt);
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_finalize(insertStmt);
+
+    std::cout << "Table copied successfully!" << std::endl;
+
+    AudioIO::sAudioDB->close();
+}
 
 //PLAYBACK STUFF
 //------------------------------------------------------------------------------------
 void PlaybackHandler::Record() {
-    if (!saveFile && !AudioIO::sAudioDB->DB()) {
+    if (mTracks.empty()) {
+        cerr<<"No tracks availble, please create a track before trying to record"<<endl;
+        waitForKeyPress();
+        return;
+    }
+
+    if (!mSaveFile && !AudioIO::sAudioDB->DB()) {
         createAudioTempDB();
     }
     recordingSequences captureSequences;
@@ -474,6 +708,7 @@ void PlaybackHandler::Record() {
     }
 
     if (mAudioIO->startStream(transports, 0,std::numeric_limits<double>::max(),options)) {
+        mUnSaved = true;
         RecordMenu();
     }
 }
@@ -482,6 +717,9 @@ void PlaybackHandler::endRecording() {
     mAudioIO->stopStream();
 
     string recordingStr = makeTime(mTracks[0]->getLengthS());
+    if (mSaveConn->DB()) {
+        save();
+    }
 
     cout<<"successfully recorded "<<recordingStr<<endl;
 
@@ -489,7 +727,7 @@ void PlaybackHandler::endRecording() {
 }
 
 void PlaybackHandler::Play() {
-    if (!saveFile && !AudioIO::sAudioDB->DB()) {
+    if (!mSaveFile && !AudioIO::sAudioDB->DB() || mTracks.empty()) {
         cout<<"Nothing to playback :("<<endl;
         waitForKeyPress();
         return;
@@ -767,6 +1005,8 @@ void PlaybackHandler::removeTrack(int trackNdx) {
 bool PlaybackHandler::changeTrackType(int trackNdx, AudioGraph::ChannelType type) {
     auto track = mTracks[trackNdx];
     if ((track->GetFirstChannelIN() +1 < mNumInputs && track->GetFirstChannelOut() +1 < mNumOutputs && type == AudioGraph::SterioChannel)||type == AudioGraph::MonoChannel)  {
+        mUnSaved = true;
+
         track->changeTrackType(type);
 
         cout<<"Track has been changed to have "<<type+1<< " channels"<<endl;

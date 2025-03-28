@@ -63,6 +63,11 @@ public:
     size_t GetAppendBufferLen() const {return mAppendBufferLen;}
     sampleCount GetSampleCount() const {return mSampleCount;}
 
+    size_t getBlockCount() const {return mBlockCount.load();}
+    size_t getBlockIDAtIndex(int index) const {return mBlocks[index].sb->getBlockID();}
+
+    void loadBlockFromID(int id);
+
 private:
     void AppendBlocks(BlockArray& additionalBlocks, bool replaceLast, sampleCount numSamples);
 

@@ -41,7 +41,7 @@ DBConnection::~DBConnection() {
    }
 }
 
-int DBConnection::open(const FilePath fileName) {
+int DBConnection::open(const FilePath fileName, bool newFile) {
 
    assert(mDB == nullptr);
    int err;
@@ -50,11 +50,12 @@ int DBConnection::open(const FilePath fileName) {
    mCheckpointPending = false;
    mCheckpointStop = false;
 
-   err = openStepByStep(fileName);
+   err = openStepByStep(fileName, newFile);
 
    //if error occurs clear databases
    if (err != SQLITE_OK) {
       if (mDB) {
+         std::cerr<<"Failed, err code: " <<sqlite3_errmsg(mDB) << std::endl;
          sqlite3_close(mDB);
          mDB = nullptr;
       }
@@ -67,7 +68,7 @@ int DBConnection::open(const FilePath fileName) {
    return err;
 }
 
-int DBConnection::openStepByStep(const FilePath fileName) {
+int DBConnection::openStepByStep(const FilePath fileName, bool newFile) {
    const char* filePath = fileName.ToUTF8();
    bool success =true;
 
@@ -77,8 +78,9 @@ int DBConnection::openStepByStep(const FilePath fileName) {
       //ERROR CONNECTING TO MAIN DB
       wxASSERT(false);
    }
-
-   err = setPageSize();
+   if (newFile) {
+      err = setPageSize();
+   }
 
    if (err != SQLITE_OK) {
       //ERR SETTING PAGE SIZE
@@ -86,6 +88,7 @@ int DBConnection::openStepByStep(const FilePath fileName) {
    }
 
    err = SafeMode();
+
 
    if (err != SQLITE_OK) {
       //FAILED TO SET TO SAFE MODE
@@ -132,7 +135,7 @@ sqlite3_stmt* DBConnection::Prepare(statementID id, const char *sql) {
 
    if (err != SQLITE_OK) {
       //FAILED TO PREPARE STATMENT
-      std::cout<< "Err Code"<< sqlite3_errmsg(mDB) << std::endl;
+      std::cout<< "Err Code: "<< sqlite3_errstr(sqlite3_extended_errcode(mDB)) << std::endl;
       wxASSERT(false);
    }
 
