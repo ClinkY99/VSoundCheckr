@@ -371,6 +371,8 @@ void AudioIO::Init() {
 
 void AudioIO::DeInit() {
     ugAudioIO.reset();
+    sAudioDB->close();
+    sAudioDB.reset();
 }
 
 void AudioIO::startThread() {

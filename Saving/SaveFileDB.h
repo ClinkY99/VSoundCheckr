@@ -31,9 +31,9 @@ private:
 using SaveFile = std::shared_ptr<SaveFileDB>;
 
 struct SaveBase {
-    SaveFile mSaveConn;
-
     virtual ~SaveBase() = default;
+
+    SaveFile mSaveConn;
 
     virtual void save() = 0;
     virtual void load(int id) = 0;

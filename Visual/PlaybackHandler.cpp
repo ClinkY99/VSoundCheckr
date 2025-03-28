@@ -16,6 +16,7 @@ using namespace std;
 PlaybackHandler::~PlaybackHandler() {
     Pa_Terminate();
     AudioIO::DeInit();
+    mSaveConn->close();
 }
 
 
@@ -444,10 +445,15 @@ void PlaybackHandler::SaveMenu() {
 
         switch (input) {
             case 1: {
-                save();
+                if (mSaveConn->DB()) {
+                    save();
+                    waitForKeyPress();
+                } else {
+                    newSave();
+                }
             } break;
             case 2: {
-                save();
+                newSave();
             } break;
             case 3: {
                 if (mUnSaved) {
@@ -521,12 +527,13 @@ void PlaybackHandler::newSave() {
         waitForKeyPress();
         return;
     }
-
-    mSaveConn->close();
+    if (mSaveConn->DB())
+        mSaveConn->close();
 
     if (!mSaveConn->newSave(saveFileDialog.GetPath().c_str())) {
         cout<<"Failed to create a new save file in specified destination"<<endl;
     }
+
 
     if (AudioIO::sAudioDB->DB()) {
         copyAudioTempDBToMainSave();
@@ -570,6 +577,8 @@ void PlaybackHandler::save() {
 
     sqlite3_finalize(stmt);
     mUnSaved = false;
+
+    cout<<"Saving complete"<<endl;
 }
 
 void PlaybackHandler::load(int) {
@@ -580,7 +589,9 @@ void PlaybackHandler::load(int) {
         waitForKeyPress();
         return;
     }
-    mSaveConn->close();
+
+    if (mSaveConn->DB())
+        mSaveConn->close();
 
     if (mSaveConn->open(saveFileDialog.GetPath().c_str(), false)) {
         cout<<"Failed to open save file in specified destination"<<endl;
@@ -622,9 +633,12 @@ void PlaybackHandler::load(int) {
 
     sqlite3_finalize(stmt);
 
-    cout<<"loading complete"<<endl;
-
     mUnSaved = false;
+
+    cout<<"loading complete"<<endl;
+    waitForKeyPress();
+
+
 }
 
 

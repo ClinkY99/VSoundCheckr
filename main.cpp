@@ -48,8 +48,8 @@ void test() {
 }
 
 int main() {
-    auto app = PlaybackHandler();
-    app.StartCApp();
+    auto app = make_shared<PlaybackHandler>();
+    app->StartCApp();
 
    // test();
 }
