@@ -13,6 +13,8 @@
 #include <wx/debug.h>
 #include <wx/wxcrtvararg.h>
 
+#include "../Dither.h"
+
 #ifdef __WXMSW__
     #include <pa_win_wasapi.h>
 #endif
@@ -123,12 +125,14 @@ int AudioIoCallback::AudioIOCallback(constSamplePtr inputBuffer, float* outputBu
     mbHasSoloSequences = CountSoloSequences();
     mCallbackReturn = paContinue;
 
-    const auto PlaybackChannels = mNumPlaybackChannels;
+    const auto PlaybackChannels = mNumCaptureChannels;
     const auto CaptureChannels = mNumCaptureChannels;
     const auto tempFloats = stackAllocate(float, framesPerBuffer*std::max(PlaybackChannels,CaptureChannels));
 
-    if (isPaused())
+    if (isPaused()) {
+        memset(outputBuffer, 0, framesPerBuffer*SAMPLE_SIZE(floatSample)*mMaxPLaybackChannels);
         return mCallbackReturn;
+    }
 
     FillOutputBuffers(outputBuffer, framesPerBuffer);
 
@@ -178,6 +182,31 @@ int AudioIoCallback::CallbackDoSeek() {
     return paContinue;
 }
 
+int AudioIoCallback::CallbackJumpToTime(){
+    mAudioThreadSequenceBufferExchangeLoopRunning.store(false);
+    waitForAudioThreadStopped();
+
+    mPlaybackShchedule.SetSequenceTime(mNewTime);
+    mSamplePos =(sampleCount) (mNewTime*mRate);
+
+    for (auto &buffer : mPlaybackBuffers) {
+        const auto toDiscard = buffer->availForGet();
+        const auto discarded = buffer->discard( toDiscard );
+    }
+
+    mPlaybackShchedule.mTimeQueue.Prime(mNewTime);
+
+    mNewTime = 0.0;
+
+    processOnceAndWait();
+
+    mAudioThreadSequenceBufferExchangeLoopRunning.store(true);
+
+    waitForAudioThreadStarted();
+
+    return paContinue;
+}
+
 
 
 void AudioIoCallback::UpdateTimePosition(unsigned long framesPerBuffer) {
@@ -198,6 +227,9 @@ void AudioIoCallback::FillOutputBuffers(float* outputFloats, unsigned long frame
 
     if (mSeek) {
         mCallbackReturn = CallbackDoSeek();
+    }
+    if (mNewTime) {
+        mCallbackReturn = CallbackJumpToTime();
     }
     const auto toGet = std::min<size_t>(framesPerBuffer, CommonlyReadyPlayback());
 
@@ -234,7 +266,7 @@ void AudioIoCallback::FillOutputBuffers(float* outputFloats, unsigned long frame
             i++;
         } else {
             for (int f = 0; f < framesPerBuffer; ++f) {
-                outputFloats[numMaxPlaybackChannels*f+x] = 0;
+                outputFloats[numMaxPlaybackChannels*f+x] = 0.0f;
             }
         }
     }
@@ -869,9 +901,9 @@ void AudioIO::DrainRecordBuffers() {
                             size = results.second;
                         }
                     }
-
-                    newBlocks = ((pSeq) -> append(iChannel, temp.ptr(), format, size, 1, narrowestSampleFormat)) || newBlocks;
-
+                    if (size > 0 ) {
+                        newBlocks = ((pSeq) -> append(iChannel, temp.ptr(), format, size, 1, narrowestSampleFormat)) || newBlocks;
+                    }
                     if (pSeq->NChannels() == 2) {
                         pSeq->toggleAppendSecond();
                     }

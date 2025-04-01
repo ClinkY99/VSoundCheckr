@@ -467,11 +467,11 @@ size_t SqliteSampleBlock::GetBlob(sqlite3_stmt *stmt, void *dest, SampleFormat d
 
     wxASSERT(minBytes+srcOffset <= BlobBytes);
 
-    // std::vector<float> test;
-    // test.resize(minBytes/SAMPLE_SIZE(srcFormat));
+    std::vector<float> test;
+    test.resize(minBytes/SAMPLE_SIZE(srcFormat));
 
     CopySamples(src +srcOffset, srcFormat, (samplePtr) dest, destFormat, minBytes/SAMPLE_SIZE(srcFormat), none);
-    // CopySamples(src +srcOffset, srcFormat, (samplePtr) test.data(), destFormat, minBytes/SAMPLE_SIZE(srcFormat), none);
+    CopySamples(src +srcOffset, srcFormat, (samplePtr) test.data(), destFormat, minBytes/SAMPLE_SIZE(srcFormat), none);
 
     dest = ((samplePtr)dest) + minBytes;
     if (srcBytes-minBytes) {

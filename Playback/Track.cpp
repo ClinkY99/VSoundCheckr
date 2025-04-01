@@ -124,5 +124,6 @@ void Track::load(int id) {
         }
     }
 
+    sqlite3_finalize(stmt);
     std::cout<<"finished loading track num: "<<id<<std::endl;
 }

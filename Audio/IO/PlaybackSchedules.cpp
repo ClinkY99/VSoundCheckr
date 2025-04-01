@@ -244,7 +244,7 @@ void PlaybackSchedule::TimeQueue::Producer(PlaybackSchedule &schedule, PlaybackS
     auto space = TimeQueueGrainSize - written;
 
     while (frames >= space) {
-        const auto times = policy.AdvancedTrackTime(schedule, time, frames);
+        const auto times = policy.AdvancedTrackTime(schedule, time, space);
 
         time = times.second;
         if (!std::isfinite(time))

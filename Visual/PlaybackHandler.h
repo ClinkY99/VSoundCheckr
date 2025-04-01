@@ -8,11 +8,15 @@
 
 #include "../Audio/AudioData/SqliteSampleBlock.h"
 #include "../Audio/IO/AudioIO.h"
+#include "../Midi/Snapshots.h"
 #include "../Saving/SaveFileDB.h"
 
 
+class MidiIO;
+
 class PlaybackHandler
-    : public SaveBase{
+    : public SaveBase
+    ,public std::enable_shared_from_this<PlaybackHandler>{
 
     PaDeviceIndex mAudioInDev = 0;
     PaDeviceIndex mAudioOutDev = 0;
@@ -33,6 +37,28 @@ class PlaybackHandler
 
     bool mUnSaved = false;
 
+    std::atomic_int midiAction = -1;
+
+    std::atomic_bool mRecording = false;
+    std::atomic_bool mPlaying = false;
+
+    enum midiActions {
+        mPlayPC = 0,
+        mRecordPC = 1,
+        mPausePC = 2,
+        mStopPC = 3,
+        mJumpF30Sec = 4,
+        mJumpB30Sec = 5,
+        mJumpF15Sec = 6,
+        mJumpB15Sec = 7,
+        mBackToSnapshot = 8
+    };
+
+    std::shared_ptr<MidiIO> mMidiIO;
+
+    int snapshotNum = 0;
+    std::shared_ptr<SnapshotHandler> mSnapshotHandler;
+
 public:
     ~PlaybackHandler();
 
@@ -42,10 +68,18 @@ public:
     void load(int = 0) override;
 
     //Playback
-    void Play();
+    bool Play();
     void stopPlayback();
-    void Record();
+    bool Record();
     void endRecording();
+
+    //MIDI
+    void setMidiAction(int action) {midiAction.store(action, std::memory_order_release);}
+    void midiHandler();
+
+    //Snapshot Stuff
+    void snapshotAction(snapshotMidi md);
+    void snapshotAction(int k);
 
     //Port Audio Stuff
     PaDeviceIndex GetAudioInDevice() const {return mAudioInDev;}
@@ -73,9 +107,18 @@ private:
     void PlaybackMenu();
     void RecordMenu();
     void RecordUIThread();
+    void RecordMidiUI();
     void PlayMenu();
-    void PlayUIThread(bool &loop);
+    void PlayUIThread();
+    void PlayMidiUI();
     void SaveMenu();
+    void SnapshotMenu();
+    void midiMenu();
+
+    //Snapshot Stuff
+    void viewSnapshots();
+    bool goToSnapshot();
+    void changeSnapshotsName();
 
     std::string buildFileName();
     void createAudioTempDB();

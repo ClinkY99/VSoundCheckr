@@ -124,6 +124,7 @@ protected:
     constPlayableSequences mPlaybackMap;
 
     double mSeek = 0;
+    double mNewTime = 0;
 
     //AudioThread Settings
     std::atomic<bool> mAudioThreadSequenceBufferExchangeActive {false};
@@ -158,8 +159,6 @@ protected:
 
     //State Stuff
     std::atomic<bool> mPaused{false};
-    std::atomic<bool> mRecording{false};
-    std::atomic<bool> mPlayback{false};
 
 
 
@@ -187,12 +186,15 @@ public:
 
     double getCurrentPlaybackTime(){return mPlaybackShchedule.mCurrentTime;}
     double getRecordingTime(){return mRecordingSchedule.mPosition;}
-    //Playback stuff
+
+    //Snapshots
+    void jumpToTime(double time){mNewTime = time;}
 
 
 
 protected:
     int CallbackDoSeek();
+    int CallbackJumpToTime();
 
     void startAudioThread();
     void stopAudioThread();

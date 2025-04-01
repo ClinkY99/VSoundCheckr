@@ -30,6 +30,8 @@ private:
     sqlite3* mDB;
     sqlite3* mCheckpointDB;
 
+    FilePath mPath;
+
     //thread stuff
     std::thread mCheckpointThread;
     std::mutex mCheckpointMutex;
@@ -57,6 +59,8 @@ public:
     int FastMode(const char* schema = "main");
     int SafeMode(const char* schema = "main");
     int setPageSize(const char* schema = "main");
+
+    FilePath getPath() const {return mPath;}
 
 private:
     //Checkpoint Thread Stuff

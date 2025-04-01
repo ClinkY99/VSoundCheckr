@@ -24,7 +24,7 @@ Sequence::Sequence(SampleBlockFactoryPtr _factory, SampleFormats _formats) :
 
 void Sequence::Flush() {
     if (mAppendBufferLen >0) {
-        DoAppend(mAppendBuffer.ptr(), mAppendEffectiveFormat, mAppendBufferLen);
+        DoAppend(mAppendBuffer.ptr(), mSampleFormats.getStored(), mAppendBufferLen);
         mSampleFormats.updateEffective(mAppendEffectiveFormat);
 
         mAppendBufferLen = 0;
@@ -100,6 +100,12 @@ void Sequence::DoAppend(constSamplePtr src, SampleFormat srcFormat, size_t len) 
     const auto dstFormat = mSampleFormats.getStored();
     SampleBuffer buffer(bufferSize, dstFormat);
     bool replaceLast = false;
+
+    std::vector<float> test;
+    test.resize(len);
+
+    CopySamples(src, floatSample, (samplePtr)test.data(), floatSample, len, none);
+
     //If the last block isnt already full fill it
     if (numBlocks > 0 &&
         (length = (pLastBlock = &mBlocks.back())->sb->getSampleCount()) < mMinSamples) {

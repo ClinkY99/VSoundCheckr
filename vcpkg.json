@@ -53,5 +53,8 @@
   }, {
     "name" : "portaudio",
     "version>=" : "19.7#6"
+  }, {
+    "name" : "libremidi",
+    "version>=" : "4.5.0#1"
   } ]
 }

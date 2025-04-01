@@ -65,6 +65,8 @@ int DBConnection::open(const FilePath fileName, bool newFile) {
       }
    }
 
+   mPath = fileName;
+
    return err;
 }
 
@@ -106,11 +108,12 @@ int DBConnection::openStepByStep(const FilePath fileName, bool newFile) {
 
    if (err != SQLITE_OK) {
       //FAILED TO SET CHECKPOINT CONFIG
+      wxASSERT(false);
    }
 
    //open checkpoint thread and bind checkpoint hook
-   auto db = mCheckpointDB;
-   mCheckpointThread = std::thread([this, db, fileName] {checkpointThread(db,fileName);});
+
+   mCheckpointThread = std::thread([this, fileName] {checkpointThread(mCheckpointDB,fileName);});
 
    sqlite3_wal_hook(mDB, checkpointHook,this);
 
@@ -196,6 +199,10 @@ bool DBConnection::close() {
    //close the DB connections
    sqlite3_close(mDB);
    sqlite3_close(mCheckpointDB);
+
+   std::remove(mPath);
+   std::remove(mPath+"-shm");
+   std::remove(mPath+"-wal");
 
    mDB = nullptr;
    mCheckpointActive = false;

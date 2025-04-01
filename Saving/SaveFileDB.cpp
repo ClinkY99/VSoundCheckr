@@ -11,12 +11,18 @@
 #define str(a) #a
 #define xstr(a) str(a)
 
+static const char *Config =
+   "PRAGMA main.busy_timeout = 5000;"
+   "PRAGMA main.locking_mode = SHARED;"
+   "PRAGMA main.synchronous = NORMAL;"
+   "PRAGMA main.journal_mode = OFF;";
+
 static const char* PageSizeConfig =
    "PRAGMA main.page_size = " xstr(PROJECT_PAGE_SIZE) ";"
    "VACUUM;";
 
 bool SaveFileDB::newSave(FilePath save) {
-    if (open(save)) {
+    if (open(save, true)) {
         std::cout<<"error opening DB"<<std::endl;
         return false;
     }
@@ -29,6 +35,12 @@ int SaveFileDB::open(FilePath save, bool newSave) {
     assert(mDB == nullptr);
     mSavePath = save;
 
+    if (newSave) {
+        std::remove(mSavePath.c_str());
+        std::remove(mSavePath.c_str()+"-shm");
+        std::remove(mSavePath.c_str()+"-wal");
+    }
+
     int err =  sqlite3_open(save, &mDB);
 
     if (err != SQLITE_OK) {
@@ -38,6 +50,10 @@ int SaveFileDB::open(FilePath save, bool newSave) {
 
     if (newSave) {
         err = sqlite3_exec(mDB, PageSizeConfig, nullptr, nullptr, nullptr);
+    }
+    err = sqlite3_exec(mDB, Config, nullptr, nullptr, nullptr);
+    if (err != SQLITE_OK) {
+        std::cerr<<sqlite3_errmsg(mDB)<<std::endl;
     }
 
 
@@ -85,6 +101,14 @@ void SaveFileDB::initSaveDB() {
     sqlite3_exec(DB(), sql, nullptr, nullptr, nullptr);
 
     //SNAPSHOT TABLE
+    sql = "CREATE TABLE IF NOT EXISTS snapshots ("
+          "snapshotNum INTEGER PRIMARY KEY,"
+          "time REAL,"
+          "controller INTEGER,"
+          "change INTEGER,"
+          "name TEXT);";
+
+    sqlite3_exec(DB(), sql, nullptr, nullptr, nullptr);
 }
 
 sqlite3_stmt *SaveFileDB::Prepare(const char *sql) {

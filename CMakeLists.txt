@@ -51,6 +51,10 @@ add_executable(RecordingSoftwareISP main.cpp
         Visual/PlaybackHandler.h
         Saving/SaveFileDB.cpp
         Saving/SaveFileDB.h
+        Midi/MidiIO.cpp
+        Midi/MidiIO.h
+        Midi/Snapshots.cpp
+        Midi/Snapshots.h
 )
 
 find_package(wxWidgets CONFIG REQUIRED)
@@ -58,6 +62,9 @@ target_link_libraries(RecordingSoftwareISP PRIVATE wx::core wx::base)
 
 find_package(portaudio CONFIG REQUIRED)
 target_link_libraries(RecordingSoftwareISP PRIVATE portaudio_static)
+
+find_package(libremidi CONFIG REQUIRED)
+target_link_libraries(RecordingSoftwareISP PRIVATE libremidi)
 
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
 target_link_libraries(RecordingSoftwareISP PRIVATE unofficial::sqlite3::sqlite3)

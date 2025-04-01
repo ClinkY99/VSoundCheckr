@@ -10,6 +10,7 @@
 #include <wx/msw/filedlg.h>
 
 #include "AppBase.h"
+#include "../Midi/MidiIO.h"
 
 using namespace std;
 
@@ -84,6 +85,10 @@ string makeTime(size_t seconds) {
 void PlaybackHandler::StartCApp() {
     AudioIO::Init();
     mSaveConn = make_shared<SaveFileDB>();
+    mSnapshotHandler = make_shared<SnapshotHandler>();
+    mSnapshotHandler->mSaveConn = mSaveConn;
+    mSnapshotHandler->Init();
+    mMidiIO = make_shared<MidiIO>(shared_from_this());
 
     mAudioIO = AudioIO::Get();
     Pa_Initialize();
@@ -113,6 +118,8 @@ void PlaybackHandler::MenuAPP() {
               "2 Track modifications \n"
               "3 Audio Settings \n"
               "4 Save \n"
+              "5 Snapshots \n"
+              "6 Midi \n"
               "0 Exit \n"
               ">>";
 
@@ -130,6 +137,12 @@ void PlaybackHandler::MenuAPP() {
             } break;
             case 4: {
                 SaveMenu();
+            } break;
+            case 5: {
+                SnapshotMenu();
+            } break;
+            case 6: {
+                midiMenu();
             } break;
             case 0: {
                 if (mUnSaved) {
@@ -169,10 +182,17 @@ void PlaybackHandler::PlaybackMenu() {
                 ViewTracks();
             } break;
             case 2: {
-                Record();
+                if (Record()) {
+                    RecordMenu();
+                    string recordingStr = makeTime(mTracks[0]->getLengthS());
+                    cout<<"successfully recorded "<<recordingStr<<endl;
+                    waitForKeyPress();
+                }
             }break;
             case 3: {
-                Play();
+                if (Play()) {
+                    PlayMenu();
+                }
             } break;
             case 0: {
                 loop = false;
@@ -189,11 +209,10 @@ void PlaybackHandler::RecordMenu() {
     int input;
     bool loop = true;
     mStopUiThread.store(false, memory_order::release);
-    mUiThread = std::thread([this]{RecordUIThread();});
+    mUiThread = std::thread([this] { RecordUIThread(); });
     while (loop) {
         cin.sync();
         cin>>input;
-
         switch (input) {
             case 1: {
                 mAudioIO->togglePause();
@@ -202,13 +221,16 @@ void PlaybackHandler::RecordMenu() {
                 mStopUiThread.store(true, memory_order::relaxed);
                 endRecording();
                 loop = false;
+                mSnapshotHandler->setCurrentSnapshot(0);
+            } break;
+            case 3: {
+                snapshotAction(mSnapshotHandler->getCurrentSnapshot()+1);
             } break;
             default: {
                 cout<<"Invalid Input"<<endl;
             }
         }
     }
-    mUiThread.detach();
 }
 
 void PlaybackHandler::RecordUIThread() {
@@ -218,12 +240,14 @@ void PlaybackHandler::RecordUIThread() {
             cout<<"Recording Paused (" << makeTime(mAudioIO->getRecordingTime()) << ")\n"
                 "1 UnPause Recording \n"
                 "2 End Recording \n"
+                "3 Create Snapshot \n"
                 ">>";
 
         } else {
             cout<<"Recording (" << makeTime(mAudioIO->getRecordingTime()) << ")\n"
                 "1 Pause Recording \n"
                 "2 End Recording \n"
+                "3 Create Snapshot \n"
                 ">>";
         }
 
@@ -231,12 +255,28 @@ void PlaybackHandler::RecordUIThread() {
         std::this_thread::sleep_for(1s);
     }
 }
+void PlaybackHandler::RecordMidiUI() {
+    while (!mStopUiThread.load(memory_order::acquire)) {
+        clrscrSafe();
+        if (mAudioIO->isPaused()) {
+            cout<<"Recording Paused (" << makeTime(mAudioIO->getRecordingTime()) << ")\n";
+            cout<<"Snapshot: "<<mSnapshotHandler->getCurrentSnapshot()<<endl;
+        } else {
+            cout<<"Recording (" << makeTime(mAudioIO->getRecordingTime()) << ")\n";
+            cout<<"Snapshot: "<<mSnapshotHandler->getCurrentSnapshot()<<endl;
+        }
+
+        using namespace chrono;
+        std::this_thread::sleep_for(1s);
+    }
+}
+
 
 void PlaybackHandler::PlayMenu() {
     int input;
     bool loop = true;
     mStopUiThread.store(false, memory_order::release);
-    mUiThread = std::thread([this, &loop]{PlayUIThread(loop);});
+    mUiThread = std::thread([this] { PlayUIThread(); });
     while (loop) {
         cin.sync();
         cin>>input;
@@ -244,12 +284,23 @@ void PlaybackHandler::PlayMenu() {
         switch (input) {
             case 1: {
                 mAudioIO->togglePause();
-            }
+            } break;
             case 2: {
                 mStopUiThread.store(true, memory_order::release);
                 stopPlayback();
                 loop = false;
             } break;
+
+            case 3: {
+                if (mAudioIO->isPaused()) {
+                    if (goToSnapshot()) {
+                        waitForKeyPress();
+                        mAudioIO->togglePause();
+                    } else {
+                        waitForKeyPress();
+                    }
+                }
+            }break;
 
             case 10:
             case 15:
@@ -264,16 +315,16 @@ void PlaybackHandler::PlayMenu() {
             }
         }
     }
-    mUiThread.detach();
 }
 
-void PlaybackHandler::PlayUIThread(bool &loop) {
+void PlaybackHandler::PlayUIThread() {
     while (!mStopUiThread.load(memory_order::acquire)) {
         clrscrSafe();
         if (mAudioIO->isPaused()) {
             cout<<"Playback Paused ( " << makeTime(mAudioIO->getCurrentPlaybackTime())<<" \\ " << makeTime(mTracks[0]->getLengthS()) << ")\n"
                 "1 UnPause Playback \n"
                 "2 Stop Playback \n"
+                "3 Go to Snapshot\n"
                 "(-/+) (10,15,30) move playback by inputted distance\n"
                 ">>";
 
@@ -285,16 +336,27 @@ void PlaybackHandler::PlayUIThread(bool &loop) {
                 ">>";
         }
 
-        if (!mAudioIO->isStreamRunning()) {
-            stopPlayback();
-            loop = false;
-            mStopUiThread = true;
+        using namespace chrono;
+        std::this_thread::sleep_for(1s);
+    }
+}
+
+void PlaybackHandler::PlayMidiUI() {
+    while (!mStopUiThread.load(memory_order::acquire)) {
+        clrscrSafe();
+        if (mAudioIO->isPaused()) {
+            cout<<"Playback Paused ( " << makeTime(mAudioIO->getCurrentPlaybackTime())<<" \\ " << makeTime(mTracks[0]->getLengthS()) << ")\n";
+            cout<<"Snapshot: "<<mSnapshotHandler->getCurrentSnapshot()<<endl;
+        } else {
+            cout<<"Playing Back Audio ( "<< makeTime(mAudioIO->getCurrentPlaybackTime())<<" \\ " << makeTime(mTracks[0]->getLengthS()) << ")\n";
+            cout<<"Snapshot: "<<mSnapshotHandler->getCurrentSnapshot()<<endl;
         }
 
         using namespace chrono;
         std::this_thread::sleep_for(1s);
     }
 }
+
 
 
 void PlaybackHandler::TracksMenu() {
@@ -430,6 +492,46 @@ void PlaybackHandler::AudioSettingsMenu() {
     }
 }
 
+void PlaybackHandler::midiMenu() {
+    int input;
+    bool loop = true;
+    while (loop) {
+        clrscr();
+        cout<<"MIDI Settings: \n"
+              "1 Change Input Device \n"
+              "2 Test MIDI \n"
+              "3 Enter Board Control \n"
+              "0 Back \n"
+              ">>";
+        cin>>input;
+
+        switch (input) {
+            case 1: {
+                mMidiIO->midiInputSelector();
+                waitForKeyPress();
+            } break;
+            case 2: {
+               mMidiIO->testMidiConn();
+                waitForKeyPress();
+                mMidiIO->endTest();
+            } break;
+            case 3: {
+                mMidiIO->startMidiMonitering();
+                midiHandler();
+                mMidiIO->exitMidiMonitering();
+            } break;
+            case 0: {
+                loop = false;
+            } break;
+            default: {
+                cout<<"Not supported ATM"<<endl;
+                waitForKeyPress();
+            } break;
+        }
+    }
+}
+
+
 void PlaybackHandler::SaveMenu() {
     int input;
     bool loop = true;
@@ -475,6 +577,39 @@ void PlaybackHandler::SaveMenu() {
     }
 }
 
+void PlaybackHandler::SnapshotMenu() {
+    int input;
+    bool loop = true;
+    while (loop) {
+        clrscr();
+        cout<<"Snapshot Menu: \n"
+              "1 View Snapshots \n"
+              "2 change snapshots name \n"
+              "0 Back \n"
+              ">>";
+        cin>>input;
+
+        switch (input) {
+            case 1: {
+                viewSnapshots();
+                waitForKeyPress();
+            } break;
+            case 2: {
+                changeSnapshotsName();
+                waitForKeyPress();
+            } break;
+            case 0: {
+                loop = false;
+            } break;
+            default: {
+                cout<<"Not supported ATM"<<endl;
+                waitForKeyPress();
+            } break;
+        }
+    }
+}
+
+
 
 //SAVING STUFF
 //------------------------------------------------------------------------------------
@@ -497,7 +632,7 @@ std::string PlaybackHandler::buildFileName() {
 }
 
 void PlaybackHandler::createAudioTempDB() {
-    AudioIO::sAudioDB->open(buildFileName());
+    AudioIO::sAudioDB->open(buildFileName(), true);
 
 
     const char * sql = "CREATE TABLE IF NOT EXISTS sampleBlocks ( "
@@ -551,10 +686,17 @@ void PlaybackHandler::save() {
         assert(false);
     }
 
+    sql = "DELETE FROM snapshots;";
+    if (sqlite3_exec(mSaveConn->DB(), sql, nullptr, nullptr, nullptr)!=SQLITE_OK) {
+        std::cerr<<"Failed to truncate audio DB, "<<sqlite3_errmsg(mSaveConn->DB())<<std::endl;
+        assert(false);
+    }
+
     for (const auto& track : mTracks) {
         track->mSaveConn = mSaveConn;
         track->save();
     }
+    mSnapshotHandler->save();
 
     sql = "DELETE FROM settings;";
     if (sqlite3_exec(mSaveConn->DB(), sql, nullptr, nullptr, nullptr)!=SQLITE_OK) {
@@ -592,15 +734,15 @@ void PlaybackHandler::load(int) {
 
     if (mSaveConn->DB())
         mSaveConn->close();
+    if (AudioIO::sAudioDB->DB()) {
+        AudioIO::sAudioDB->close();
+    }
 
     if (mSaveConn->open(saveFileDialog.GetPath().c_str(), false)) {
         cout<<"Failed to open save file in specified destination"<<endl;
         return;
     }
-    if (AudioIO::sAudioDB->DB()) {
-        AudioIO::sAudioDB->close();
-    }
-    AudioIO::sAudioDB->open(saveFileDialog.GetPath().c_str(), false);
+    AudioIO::sAudioDB->open(mSaveConn->GetSavePath(), false);
 
     auto stmt = mSaveConn->Prepare("SELECT hostAPI, inDev, outDev, sRate FROM settings WHERE _ = 1;");
 
@@ -622,7 +764,7 @@ void PlaybackHandler::load(int) {
     }
 
     int numTracks = sqlite3_column_int(stmt, 0);
-
+    sqlite3_finalize(stmt);
     mTracks.clear();
     mTracks.resize(numTracks);
     for (int i = 0; i < numTracks; ++i) {
@@ -630,8 +772,9 @@ void PlaybackHandler::load(int) {
         mTracks[i]->mSaveConn = mSaveConn;
         mTracks[i]->load(i+1);
     }
-
-    sqlite3_finalize(stmt);
+    mSnapshotHandler = make_shared<SnapshotHandler>();
+    mSnapshotHandler->mSaveConn = mSaveConn;
+    mSnapshotHandler->load();
 
     mUnSaved = false;
 
@@ -694,11 +837,11 @@ void PlaybackHandler::copyAudioTempDBToMainSave() const {
 
 //PLAYBACK STUFF
 //------------------------------------------------------------------------------------
-void PlaybackHandler::Record() {
+bool PlaybackHandler::Record() {
     if (mTracks.empty()) {
         cerr<<"No tracks availble, please create a track before trying to record"<<endl;
         waitForKeyPress();
-        return;
+        return false;
     }
 
     if (!mSaveFile && !AudioIO::sAudioDB->DB()) {
@@ -721,30 +864,27 @@ void PlaybackHandler::Record() {
         }
     }
 
-    if (mAudioIO->startStream(transports, 0,std::numeric_limits<double>::max(),options)) {
-        mUnSaved = true;
-        RecordMenu();
-    }
+    bool done = mAudioIO->startStream(transports, 0,std::numeric_limits<double>::max(),options);
+    mRecording.store(done, std::memory_order_release);
+    return done;
 }
 
 void PlaybackHandler::endRecording() {
     mAudioIO->stopStream();
-
-    string recordingStr = makeTime(mTracks[0]->getLengthS());
     if (mSaveConn->DB()) {
         save();
     }
 
-    cout<<"successfully recorded "<<recordingStr<<endl;
-
-    waitForKeyPress();
+    mStopUiThread.store(true, memory_order::release);
+    mUiThread.detach();
+    mRecording.store(false, std::memory_order_release);
 }
 
-void PlaybackHandler::Play() {
+bool PlaybackHandler::Play() {
     if (!mSaveFile && !AudioIO::sAudioDB->DB() || mTracks.empty()) {
         cout<<"Nothing to playback :("<<endl;
         waitForKeyPress();
-        return;
+        return false;
     }
 
     constPlayableSequences playbackSequences;
@@ -766,13 +906,185 @@ void PlaybackHandler::Play() {
         }
     }
 
-    if (mAudioIO->startStream(transports, 0, mTracks[0]->getLengthS(),options)) {
-        PlayMenu();
-    }
+    auto snapshot = mSnapshotHandler->getSnapshot(mSnapshotHandler->getCurrentSnapshot());
+    options.mStartTime = snapshot.timestamp;
+
+    bool done =  mAudioIO->startStream(transports, 0, mTracks[0]->getLengthS(),options);
+    mPlaying.store(done, std::memory_order_release);
+
+    return done;
 }
 
 void PlaybackHandler::stopPlayback() {
     mAudioIO->stopStream();
+
+    mStopUiThread.store(true, memory_order::release);
+    mUiThread.detach();
+    mPlaying.store(false, std::memory_order_release);
+}
+
+void PlaybackHandler::midiHandler() {
+    bool loop = true;
+    clrscr();
+    cout<<"Entered Midi Mode"<<endl;
+    while (loop) {
+        bool recording = mRecording.load(std::memory_order_relaxed);
+        bool playback = mPlaying.load(std::memory_order_relaxed);
+        int action = midiAction.load(std::memory_order_acquire);
+        switch (action) {
+            case mPlayPC:
+                if (!recording) {
+                    playback = Play();
+
+                    if (playback) {
+                        mStopUiThread.store(false, memory_order::release);
+                        mUiThread = std::thread([this] { PlayMidiUI(); });
+                    }
+                }
+            break;
+            case mRecordPC:
+                if (playback) {
+                    stopPlayback();
+                    using namespace chrono;
+                    std::this_thread::sleep_for(1s);
+                }
+                recording = Record();
+
+                if (recording) {
+                    mStopUiThread.store(false, memory_order::release);
+                    mUiThread = std::thread([this] { RecordMidiUI(); });
+                }
+            break;
+
+            case mPausePC:
+                mAudioIO->togglePause();
+            break;
+
+            case mStopPC:
+                if (playback) {
+                    stopPlayback();
+                    cout<<"Finished Recording"<<endl;
+                } else if (recording) {
+                    endRecording();
+                    cout<<"Finished Playback"<<endl;
+                } else {
+                    loop = false;
+                }
+            break;
+
+            case mJumpF30Sec:
+                mAudioIO->doSeek(30);
+            break;
+
+            case mJumpB30Sec:
+                mAudioIO->doSeek(-30);
+            break;
+
+            case mJumpF15Sec:
+                mAudioIO->doSeek(15);
+             break;
+
+            case mJumpB15Sec:
+                mAudioIO->doSeek(-15);
+            break;
+            case mBackToSnapshot:
+                snapshotAction(mSnapshotHandler->getCurrentSnapshot());
+            break;
+        }
+        if (action>=0) {
+            midiAction.store(-1, memory_order::release);
+        }
+    }
+}
+
+void PlaybackHandler::snapshotAction(snapshotMidi md) {
+    bool recording = mRecording.load(std::memory_order_acquire);
+    bool playback = mPlaying.load(std::memory_order_acquire);
+    bool pause = mAudioIO->isPaused();
+
+    if (recording) {
+        mSnapshotHandler->setCurrentSnapshot(mSnapshotHandler->newSnapshot(md, mTracks[0]->getLengthS()));
+    } else if (playback) {
+        auto s = mSnapshotHandler->getSnapshot(md);
+        mAudioIO->jumpToTime(s.timestamp);
+        mSnapshotHandler->setCurrentSnapshot(s.number);
+    } else {
+        auto s = mSnapshotHandler->getSnapshot(md);
+        if (s.number != -1) {
+            mSnapshotHandler->setCurrentSnapshot(s.number);
+        }
+    }
+}
+
+void PlaybackHandler::snapshotAction(int k) {
+    bool recording = mRecording.load(std::memory_order_acquire);
+    bool playback = mPlaying.load(std::memory_order_acquire);
+    bool pause = mAudioIO->isPaused();
+
+    if (recording) {
+        mSnapshotHandler->newSnapshot(mAudioIO->getRecordingTime());
+        mSnapshotHandler->setCurrentSnapshot(k);
+    } else if (playback) {
+        auto s = mSnapshotHandler->getSnapshot(k);
+        mAudioIO->jumpToTime(s.timestamp);
+        mSnapshotHandler->setCurrentSnapshot(s.number);
+    }
+}
+
+//Snapshot Stuff
+void PlaybackHandler::viewSnapshots() {
+    auto snapshots = mSnapshotHandler->getSnapshots();
+
+    if (snapshots.size() >0) {
+        cout<<"snapshots: "<<endl;
+        for (auto snapshot: snapshots) {
+            cout<<snapshot.number<<" - "<<snapshot.name<<"     "<<makeTime(snapshot.timestamp)<<endl;
+        }
+    } else {
+        cout<<"no created snapshots"<<endl;
+    }
+}
+
+void PlaybackHandler::changeSnapshotsName() {
+    auto snapshotsSize = mSnapshotHandler->getSnapshots().size();
+    if (snapshotsSize > 1) {
+        int snapshotNum;
+        cout<<"Input the snapshot number: \n>>";
+        cin>>snapshotNum;
+
+        if (snapshotNum<snapshotsSize) {
+            string name;
+            cout<<"Input the name of the new snapshot: \n>>";
+            cin>>name;
+
+            mSnapshotHandler->assignName(name, snapshotNum);
+        } else {
+            cout<<"Snapshot Num Out of range"<<endl;
+        }
+    } else {
+        cout<<"No snapshots to rename"<<endl;
+    }
+}
+
+bool PlaybackHandler::goToSnapshot() {
+    auto snapshotsSize = mSnapshotHandler->getSnapshots().size();
+    if (snapshotsSize > 0) {
+        viewSnapshots();
+
+        cout<<"Which snapshot would you like to go to? \n >>";
+        int snapshotNum;
+        cin>>snapshotNum;
+        if (snapshotNum<snapshotsSize) {
+            snapshotAction(snapshotNum);
+        } else {
+            cout<<"Snapshot Num Out of range"<<endl;
+            return false;
+        }
+    } else {
+        cout<<"No snapshots to go to"<<endl;
+        return false;
+    }
+    return true;
 }
 
 

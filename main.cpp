@@ -21,8 +21,8 @@ using namespace std;
 
 void test() {
     DBConnection db;
-    db.open("C:/Users/cline/CLionProjects/RecordingSoftwareISP/tmp/Unsaved Session 2025-03-25.18-38.audioUnsaved");
-    auto stmt = db.Prepare(DBConnection::GetSamples, "SELECT samples FROM sampleBlocks WHERE blockID = 1;");
+    db.open("C:/Users/cline/CLionProjects/RecordingSoftwareISP/cmake-build-debug/VirtualSoundCheckSessions/test.audio");
+    auto stmt = db.Prepare(DBConnection::GetSamples, "SELECT samples FROM sampleBlocks WHERE blockID = 3;");
 
     auto err = sqlite3_step(stmt);
 
@@ -51,6 +51,6 @@ int main() {
     auto app = make_shared<PlaybackHandler>();
     app->StartCApp();
 
-   // test();
+   //test();
 }
 
