@@ -21,7 +21,7 @@ inline bool operator==(snapshotMidi x, snapshotMidi y) {
 
 struct Snapshot {
     std::string name;
-    int number;
+    int number = -1;
     snapshotMidi midiKey;
 
 
