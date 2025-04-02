@@ -65,6 +65,7 @@ public:
     void StartCApp();
     void newSave();
     void save() override;
+    void newShow() override;
     void load(int = 0) override;
 
     //Playback

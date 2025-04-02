@@ -302,12 +302,10 @@ int Sequence::FindBlock(sampleCount pos) {
 }
 
 void Sequence::loadBlockFromID(int id){
-    std::cout<<"loading Block"<<id<<std::endl;
     auto newBlock = mpFactory->CreateFromID(floatSample,id);
 
     mBlocks.push_back(SeqBlock(newBlock, mSampleCount));
     mSampleCount+= newBlock->getSampleCount();
 
     mBlockCount.store(mBlocks.size(), std::memory_order_relaxed);
-    std::cout<<"Finished Loading Block"<<std::endl;
 }

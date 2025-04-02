@@ -12,7 +12,7 @@ void SnapshotHandler::Init() {
 
     snapshot.timestamp = 0;
     snapshot.number = 0;
-    snapshot.midiKey = {0,0};
+    snapshot.midiKey = {16,0};
     snapshot.name = "First";
 
     mSnapshots.push_back(snapshot);
@@ -40,6 +40,11 @@ int SnapshotHandler::newSnapshot(snapshotMidi key, double time) {
 
         return snapshot.number;
     }
+
+    if (getCurrentSnapshot()<snapshot.number) {
+        mSnapshots[snapshot.number].timestamp = time;
+    }
+
     return snapshot.number;
 }
 
@@ -100,6 +105,28 @@ void SnapshotHandler::save() {
 
         sqlite3_clear_bindings(stmt);
         sqlite3_reset(stmt);
+    }
+
+    sqlite3_finalize(stmt);
+
+    std::cout<<"finished saving snapshots"<<std::endl;
+}
+
+void SnapshotHandler::newShow() {
+    auto stmt = mSaveConn->Prepare("INSERT INTO snapshots (snapshotNum, time, controller, change, name) "
+                                  "                    VALUES(?1, ?2, ?3, ?4, ?5)");
+
+    auto s = mSnapshots[0];
+
+    sqlite3_bind_int(stmt, 1, s.number);
+    sqlite3_bind_double(stmt, 2, s.timestamp);
+    sqlite3_bind_int(stmt, 3, s.midiKey.controller);
+    sqlite3_bind_int(stmt, 4, s.midiKey.change);
+    sqlite3_bind_text(stmt, 5, s.name.c_str(), -1, SQLITE_STATIC);
+
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        std::cerr<<sqlite3_errmsg(mSaveConn->DB())<<std::endl;;
+        assert(false);
     }
 
     sqlite3_finalize(stmt);

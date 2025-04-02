@@ -94,6 +94,30 @@ void Track::save() {
     sqlite3_finalize(stmt);
 }
 
+void Track::newShow() {
+    auto stmt = mSaveConn->Prepare("INSERT INTO tracks (trackType, firstChannelIn, firstChannelOut,"
+                                   "                        sampleRate)"
+                                   "                VALUES(?1, ?2, ?3, ?4);");
+
+    if (sqlite3_bind_int(stmt, 1, mNumChannels) ||
+        sqlite3_bind_int(stmt, 2, mFirstChannelNumIn) ||
+        sqlite3_bind_int(stmt, 3, mFirstChannelNumOut) ||
+        sqlite3_bind_double(stmt, 4, mRate)) {
+        wxASSERT(false);
+        }
+
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        //STEP FAILED (replace with log)
+        wxASSERT(false);
+    }
+
+    mSequences.clear();
+    updateSequences();
+
+    sqlite3_finalize(stmt);
+}
+
+
 void Track::load(int id) {
     std::cout<<"loading Track"<<id<<std::endl;
     auto stmt = mSaveConn->Prepare("SELECT trackType, firstChannelIn, firstChannelOut, sampleRate, blocks "

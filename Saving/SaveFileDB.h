@@ -36,6 +36,7 @@ struct SaveBase {
     SaveFile mSaveConn;
 
     virtual void save() = 0;
+    virtual void newShow() = 0;
     virtual void load(int id) = 0;
 };
 

@@ -48,6 +48,7 @@ public:
 
     //saving
     void save() override;
+    void newShow() override;
     void load(int id) override;
 
     //overrides

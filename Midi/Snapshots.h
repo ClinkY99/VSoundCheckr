@@ -55,6 +55,7 @@ public:
     Snapshots getSnapshots(){return mSnapshots;}
 
     void save() override;
+    void newShow() override;
     void load(int id = 0) override;
 };
 

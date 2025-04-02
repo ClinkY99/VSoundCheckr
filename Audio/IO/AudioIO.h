@@ -182,7 +182,7 @@ public:
 
     bool isPaused() const {return mPaused.load(std::memory_order_relaxed);}
 
-    void doSeek(double amount) {mSeek = amount;}
+    void doSeek(double amount) {mSeek += amount;}
 
     double getCurrentPlaybackTime(){return mPlaybackShchedule.mCurrentTime;}
     double getRecordingTime(){return mRecordingSchedule.mPosition;}

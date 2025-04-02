@@ -478,8 +478,15 @@ void PlaybackHandler::AudioSettingsMenu() {
                 changeAudioOutDev();
             } break;
             case 4: {
+                if (!mTracks.empty()) {
+                    if (mTracks[0]->getLengthS() > 0) {
+                        cout<<"Unable to change sample rate of project after data has been recorded"<<endl;
+                        break;
+                    }
+                }
                 mUnSaved = true;
                 changeSRate();
+                waitForKeyPress();
             } break;
             case 0: {
                 loop = false;
@@ -541,6 +548,7 @@ void PlaybackHandler::SaveMenu() {
               "1 Save \n"
               "2 New Session \n"
               "3 Load Session \n"
+              "4 New Show \n"
               "0 Back \n"
               ">>";
         cin>>input;
@@ -566,6 +574,15 @@ void PlaybackHandler::SaveMenu() {
                 }
                 load();
             } break;
+            case 4: {
+                if (mUnSaved) {
+                    cout<<"Current session is unsaved\n Would you like to save session? ";
+                    if (YNConfirm()) {
+                        save();
+                    }
+                }
+                newShow();
+            }
             case 0: {
                 loop = false;
             } break;
@@ -722,6 +739,53 @@ void PlaybackHandler::save() {
 
     cout<<"Saving complete"<<endl;
 }
+
+void PlaybackHandler::newShow() {
+    if (mSaveConn->DB()) {
+        wxFileDialog saveFileDialog(nullptr, _("Choose Save Location"), "","", "<insert name> session files (*.audio) | *.audio", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+        if (saveFileDialog.ShowModal() == wxID_CANCEL) {
+            cout<<"Canceled New Save"<<endl;
+            waitForKeyPress();
+            return;
+        }
+        if (mSaveConn->DB())
+            mSaveConn->close();
+
+        if (!mSaveConn->newSave(saveFileDialog.GetPath().c_str())) {
+            cout<<"Failed to create a new save file in specified destination"<<endl;
+        }
+
+        AudioIO::sAudioDB->close();
+        AudioIO::sAudioDB->open(mSaveConn->GetSavePath());
+
+        for (auto track: mTracks) {
+            track->mSaveConn = mSaveConn;
+            track->newShow();
+        }
+
+        mSnapshotHandler->mSaveConn = mSaveConn;
+        mSnapshotHandler->newShow();
+
+        auto stmt = mSaveConn->Prepare("INSERT INTO settings (hostAPI, inDev, outDev, sRate)"
+                                      "                           VALUES(?1, ?2, ?3, ?4);");
+        if (sqlite3_bind_int(stmt, 1, mHostApi) ||
+            sqlite3_bind_int(stmt, 2, mAudioInDev) ||
+            sqlite3_bind_int(stmt, 3, mAudioOutDev) ||
+            sqlite3_bind_double(stmt, 4, mRate)) {
+            wxASSERT(false);
+            }
+
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            wxASSERT(false);
+        }
+
+        sqlite3_finalize(stmt);
+        mUnSaved = false;
+    } else {
+        cout<<"Unable to make a new show without an active save file, please save your current session first"<<endl;
+    }
+}
+
 
 void PlaybackHandler::load(int) {
     wxFileDialog saveFileDialog(nullptr, _("Choose Session File"), "","", "<insert name> session files (*.audio) | *.audio", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
@@ -1212,6 +1276,11 @@ void PlaybackHandler::changeSRate() {
     std::vector<size_t> supportedRates;
     getSupportedRates(supportedRates);
 
+    if (!supportedRates.size()) {
+        cout<<"No Available Sample Rates Found"<<endl;
+        waitForKeyPress();
+    }
+
     cout<<endl<<"Available rates: "<<endl;
     for (int i = 0; i < supportedRates.size(); ++i) {
         auto rate = supportedRates[i];
@@ -1222,6 +1291,7 @@ void PlaybackHandler::changeSRate() {
         }
         cout<<i+1<< "   " <<rate<<endl;
     }
+
     cout<<">>";
     int rateNdx;
     cin>>rateNdx;
@@ -1505,7 +1575,3 @@ bool PlaybackHandler::attemptPopulateOut(int trackNdx, bool fullReset) {
 
     return true;
 }
-
-
-
-
