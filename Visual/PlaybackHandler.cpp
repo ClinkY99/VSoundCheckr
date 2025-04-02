@@ -945,7 +945,7 @@ void PlaybackHandler::endRecording() {
 }
 
 bool PlaybackHandler::Play() {
-    if (!mSaveFile && !AudioIO::sAudioDB->DB() || mTracks.empty()) {
+    if (!mSaveFile && !AudioIO::sAudioDB->DB() || mTracks.empty() || mTracks[0]->getLengthS() == 0) {
         cout<<"Nothing to playback :("<<endl;
         waitForKeyPress();
         return false;
