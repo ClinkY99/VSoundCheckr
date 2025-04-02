@@ -132,6 +132,8 @@ void SnapshotHandler::newShow() {
     sqlite3_finalize(stmt);
 
     std::cout<<"finished saving snapshots"<<std::endl;
+
+    load();
 }
 
 void SnapshotHandler::load(int id) {

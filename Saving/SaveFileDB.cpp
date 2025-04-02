@@ -36,9 +36,9 @@ int SaveFileDB::open(FilePath save, bool newSave) {
     mSavePath = save;
 
     if (newSave) {
-        std::remove(mSavePath.c_str());
-        std::remove(mSavePath.c_str()+"-shm");
-        std::remove(mSavePath.c_str()+"-wal");
+        std::remove(save.c_str());
+        std::remove(save.c_str()+"-shm");
+        std::remove(save.c_str()+"-wal");
     }
 
     int err =  sqlite3_open(save, &mDB);
