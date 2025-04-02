@@ -44,6 +44,8 @@ private:
     std::mutex mStatementMutex;
     std::map<StatementIndex, sqlite3_stmt*> mStatements;
 
+    bool mTemp = false;
+
 public:
     DBConnection();
     ~DBConnection();
@@ -61,6 +63,8 @@ public:
     int setPageSize(const char* schema = "main");
 
     FilePath getPath() const {return mPath;}
+
+    void setTemp(bool temp) {mTemp = temp;}
 
 private:
     //Checkpoint Thread Stuff

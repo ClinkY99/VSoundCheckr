@@ -43,6 +43,8 @@ DBConnection::~DBConnection() {
 
 int DBConnection::open(const FilePath fileName, bool newFile) {
 
+   mTemp = false;
+
    assert(mDB == nullptr);
    int err;
 
@@ -200,9 +202,12 @@ bool DBConnection::close() {
    sqlite3_close(mDB);
    sqlite3_close(mCheckpointDB);
 
-   std::remove(mPath);
-   std::remove(mPath+"-shm");
-   std::remove(mPath+"-wal");
+   if (mTemp) {
+      std::remove(mPath);
+      std::remove(mPath+"-shm");
+      std::remove(mPath+"-wal");
+      mTemp = false;
+   }
 
    mDB = nullptr;
    mCheckpointActive = false;

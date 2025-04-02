@@ -650,6 +650,7 @@ std::string PlaybackHandler::buildFileName() {
 
 void PlaybackHandler::createAudioTempDB() {
     AudioIO::sAudioDB->open(buildFileName(), true);
+    AudioIO::sAudioDB->setTemp(true);
 
 
     const char * sql = "CREATE TABLE IF NOT EXISTS sampleBlocks ( "
