@@ -997,26 +997,34 @@ void PlaybackHandler::midiHandler() {
         int action = midiAction.load(std::memory_order_acquire);
         switch (action) {
             case mPlayPC:
-                if (!recording) {
-                    playback = Play();
+                if (!playback) {
+                    if (!recording) {
+                        playback = Play();
 
-                    if (playback) {
-                        mStopUiThread.store(false, memory_order::release);
-                        mUiThread = std::thread([this] { PlayMidiUI(); });
+                        if (playback) {
+                            mStopUiThread.store(false, memory_order::release);
+                            mUiThread = std::thread([this] { PlayMidiUI(); });
+                        }
                     }
+                } else {
+                    mAudioIO->togglePause();
                 }
             break;
             case mRecordPC:
-                if (playback) {
-                    stopPlayback();
-                    using namespace chrono;
-                    std::this_thread::sleep_for(1s);
-                }
-                recording = Record();
+                if (!recording) {
+                    if (playback) {
+                        stopPlayback();
+                        using namespace chrono;
+                        std::this_thread::sleep_for(1s);
+                    }
+                    recording = Record();
 
-                if (recording) {
-                    mStopUiThread.store(false, memory_order::release);
-                    mUiThread = std::thread([this] { RecordMidiUI(); });
+                    if (recording) {
+                        mStopUiThread.store(false, memory_order::release);
+                        mUiThread = std::thread([this] { RecordMidiUI(); });
+                    }
+                } else {
+                    mAudioIO->togglePause();
                 }
             break;
 
