@@ -129,7 +129,7 @@ int AudioIoCallback::AudioIOCallback(constSamplePtr inputBuffer, float* outputBu
     const auto CaptureChannels = mNumCaptureChannels;
     const auto tempFloats = stackAllocate(float, framesPerBuffer*std::max(PlaybackChannels,CaptureChannels));
 
-    if (isPaused()) {
+    if (isPaused() || isSeeking()) {
         memset(outputBuffer, 0, framesPerBuffer*SAMPLE_SIZE(floatSample)*mMaxPLaybackChannels);
         return mCallbackReturn;
     }
@@ -156,6 +156,7 @@ void AudioIoCallback::CallbackCompletion(int &callbackReturn, unsigned long len)
 }
 
 int AudioIoCallback::CallbackDoSeek() {
+    mAudioThreadSeeking.store(true);
     mAudioThreadSequenceBufferExchangeLoopRunning.store(false);
     waitForAudioThreadStopped();
 
@@ -168,7 +169,7 @@ int AudioIoCallback::CallbackDoSeek() {
 
     for (auto &buffer : mPlaybackBuffers) {
         const auto toDiscard = buffer->availForGet();
-        const auto discarded = buffer->discard( toDiscard );
+        buffer->discard( toDiscard );
     }
 
     mPlaybackShchedule.mTimeQueue.Prime(time);
@@ -179,10 +180,13 @@ int AudioIoCallback::CallbackDoSeek() {
 
     waitForAudioThreadStarted();
 
+    mAudioThreadSeeking.store(false);
+
     return paContinue;
 }
 
 int AudioIoCallback::CallbackJumpToTime(){
+    mAudioThreadSeeking.store(true);
     mAudioThreadSequenceBufferExchangeLoopRunning.store(false);
     waitForAudioThreadStopped();
 
@@ -191,12 +195,12 @@ int AudioIoCallback::CallbackJumpToTime(){
 
     for (auto &buffer : mPlaybackBuffers) {
         const auto toDiscard = buffer->availForGet();
-        const auto discarded = buffer->discard( toDiscard );
+        buffer->discard( toDiscard );
     }
 
     mPlaybackShchedule.mTimeQueue.Prime(mNewTime);
 
-    mNewTime = 0.0;
+    mNewTime = -1.0;
 
     processOnceAndWait();
 
@@ -204,6 +208,7 @@ int AudioIoCallback::CallbackJumpToTime(){
 
     waitForAudioThreadStarted();
 
+    mAudioThreadSeeking.store(false);
     return paContinue;
 }
 
@@ -226,11 +231,16 @@ void AudioIoCallback::FillOutputBuffers(float* outputFloats, unsigned long frame
     }
 
     if (mSeek) {
-        mCallbackReturn = CallbackDoSeek();
+        mCallbackReturn = paContinue;
+        std::thread(CallbackDoSeek);
+        return;
     }
-    if (mNewTime) {
-        mCallbackReturn = CallbackJumpToTime();
+    if (mNewTime != -1) {
+        mCallbackReturn = paContinue;
+        std::thread(CallbackJumpToTime);
+        return;
     }
+
     const auto toGet = std::min<size_t>(framesPerBuffer, CommonlyReadyPlayback());
 
     //--------- MEMORY ALLOCATIONS -----------
@@ -438,7 +448,7 @@ void AudioIoCallback::waitForAudioThreadStopped() {
     mAudioThreadAcknowledge.store(eNone, std::memory_order_release);
 }
 
-void AudioIoCallback::processOnceAndWait() {
+void AudioIoCallback:: processOnceAndWait() {
     mAudioThreadShouldSequenceBufferExchangeOnce.store(true, std::memory_order_release);
 
     while (mAudioThreadShouldSequenceBufferExchangeOnce.load(std::memory_order_acquire))

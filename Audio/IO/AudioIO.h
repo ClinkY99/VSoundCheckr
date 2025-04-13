@@ -130,6 +130,7 @@ protected:
     std::atomic<bool> mAudioThreadSequenceBufferExchangeActive {false};
     std::atomic<bool> mAudioThreadShouldSequenceBufferExchangeOnce {false};
     std::atomic<bool> mAudioThreadSequenceBufferExchangeLoopRunning {false};
+    std::atomic<bool> mAudioThreadSeeking{false};
     std::atomic<Acknowledge> mAudioThreadAcknowledge { eNone };
 
     //buffers
@@ -181,6 +182,7 @@ public:
     unsigned CountSoloSequences();
 
     bool isPaused() const {return mPaused.load(std::memory_order_relaxed);}
+    bool isSeeking() const {return mAudioThreadSeeking.load(std::memory_order_relaxed);}
 
     void doSeek(double amount) {mSeek += amount;}
 

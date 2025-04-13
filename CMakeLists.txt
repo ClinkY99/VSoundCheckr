@@ -5,6 +5,9 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_link_options(-Xlinker --allow-multiple-definition)
 
+set(BUILD_SHARED_LIBS OFF)
+set(CMAKE_EXE_LINKER_FLAGS "-static")
+
 add_definitions(-DPA_USE_ASIO=1)
 
 add_executable(RecordingSoftwareISP main.cpp

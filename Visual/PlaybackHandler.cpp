@@ -1079,8 +1079,10 @@ void PlaybackHandler::snapshotAction(snapshotMidi md) {
         mSnapshotHandler->setCurrentSnapshot(mSnapshotHandler->newSnapshot(md, mTracks[0]->getLengthS()));
     } else if (playback) {
         auto s = mSnapshotHandler->getSnapshot(md);
-        mAudioIO->jumpToTime(s.timestamp);
-        mSnapshotHandler->setCurrentSnapshot(s.number);
+        if (s.number != -1) {
+            mAudioIO->jumpToTime(s.timestamp);
+            mSnapshotHandler->setCurrentSnapshot(s.number);
+        }
     } else {
         auto s = mSnapshotHandler->getSnapshot(md);
         if (s.number != -1) {
