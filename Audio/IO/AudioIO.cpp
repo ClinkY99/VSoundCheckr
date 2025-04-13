@@ -129,7 +129,7 @@ int AudioIoCallback::AudioIOCallback(constSamplePtr inputBuffer, float* outputBu
     const auto CaptureChannels = mNumCaptureChannels;
     const auto tempFloats = stackAllocate(float, framesPerBuffer*std::max(PlaybackChannels,CaptureChannels));
 
-    if (isPaused() || isSeeking()) {
+    if (isPaused()) {
         memset(outputBuffer, 0, framesPerBuffer*SAMPLE_SIZE(floatSample)*mMaxPLaybackChannels);
         return mCallbackReturn;
     }
@@ -156,14 +156,13 @@ void AudioIoCallback::CallbackCompletion(int &callbackReturn, unsigned long len)
 }
 
 int AudioIoCallback::CallbackDoSeek() {
-    mAudioThreadSeeking.store(true);
     mAudioThreadSequenceBufferExchangeLoopRunning.store(false);
     waitForAudioThreadStopped();
 
     const auto time = mPlaybackShchedule.GetPolicy().OffsetSequenceTime(mPlaybackShchedule, mSeek);
 
     mPlaybackShchedule.SetSequenceTime(time);
-    mSeek = 0.0;
+    mSeek = 0;
 
     mSamplePos = (sampleCount)(time*mRate);
 
@@ -177,16 +176,12 @@ int AudioIoCallback::CallbackDoSeek() {
     processOnceAndWait();
 
     mAudioThreadSequenceBufferExchangeLoopRunning.store(true);
-
     waitForAudioThreadStarted();
-
-    mAudioThreadSeeking.store(false);
 
     return paContinue;
 }
 
 int AudioIoCallback::CallbackJumpToTime(){
-    mAudioThreadSeeking.store(true);
     mAudioThreadSequenceBufferExchangeLoopRunning.store(false);
     waitForAudioThreadStopped();
 
@@ -208,7 +203,6 @@ int AudioIoCallback::CallbackJumpToTime(){
 
     waitForAudioThreadStarted();
 
-    mAudioThreadSeeking.store(false);
     return paContinue;
 }
 
@@ -231,14 +225,24 @@ void AudioIoCallback::FillOutputBuffers(float* outputFloats, unsigned long frame
     }
 
     if (mSeek) {
-        mCallbackReturn = paContinue;
-        std::thread(CallbackDoSeek);
-        return;
+        //SOLUTION TO FIX AUDIO BUFFERING WHILE SEEKING WITH A LARGE NUMBER OF TRACKS, LOOK AT LATER TO MAYBE MAKE SEEKING THREADED?
+        if (!isPaused()&&mSeeking<3) {
+            memset(outputFloats, 0, framesPerBuffer*SAMPLE_SIZE(floatSample)*mMaxPLaybackChannels);
+            mSeeking++;
+            return;
+        }
+        mCallbackReturn = CallbackDoSeek();
+        mSeeking = 0;
     }
     if (mNewTime != -1) {
-        mCallbackReturn = paContinue;
-        std::thread(CallbackJumpToTime);
-        return;
+        //SOLUTION TO FIX AUDIO BUFFERING WHILE SEEKING WITH A LARGE NUMBER OF TRACKS, LOOK AT LATER TO MAYBE MAKE SEEKING THREADED?
+        if (!isPaused()&&mSeeking<3) {
+            memset(outputFloats, 0, framesPerBuffer*SAMPLE_SIZE(floatSample)*mMaxPLaybackChannels);
+            mSeeking++;
+            return;
+        }
+        mCallbackReturn = CallbackJumpToTime();
+        mSeeking = 0;
     }
 
     const auto toGet = std::min<size_t>(framesPerBuffer, CommonlyReadyPlayback());
