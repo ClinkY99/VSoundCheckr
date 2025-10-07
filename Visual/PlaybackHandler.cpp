@@ -851,8 +851,6 @@ void PlaybackHandler::load(int) {
 
     cout<<"loading complete"<<endl;
     waitForKeyPress();
-
-
 }
 
 

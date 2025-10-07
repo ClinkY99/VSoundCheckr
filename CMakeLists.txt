@@ -54,6 +54,7 @@ add_executable(VSoundCheckr main.cpp
         Midi/MidiIO.h
         Midi/Snapshots.cpp
         Midi/Snapshots.h
+        Icon/app.o
 )
 
 find_package(wxWidgets CONFIG REQUIRED)
