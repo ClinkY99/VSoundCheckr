@@ -36,4 +36,4 @@ Snapshots are recorded using control change midi actions. This is the default co
 
 ## License
 This project is licensed under the terms of the GNU General Public License v3.0 (GPLv3).
-See the [LICENSE](LICENSE.MD) file for details.
+See the [LICENSE](LICENSE) file for details.
