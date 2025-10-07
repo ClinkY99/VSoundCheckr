@@ -1,6 +1,6 @@
 # SoundCheckr
-Hello and Welcome VSC+ (Working Title). This software is a **WORK IN PROGRESS** personal project, with the intention of streamlining the virtual soundcheck process.
-Currently VSC+ is only built for Windows, but support for MAC and Linux is planned. VSC+ is licensed under the GNU General Public License v3.0
+Hello and Welcome SoundCheckr (Working Title). This software is a **WORK IN PROGRESS** personal project, with the intention of streamlining the virtual soundcheck process.
+Currently SoundCheckr is only built for Windows, but support for MAC and Linux is planned. SoundCheckr is licensed under the GNU General Public License v3.0
 
 ### Features
 - Supports multitrack recording and playback
@@ -12,12 +12,12 @@ Currently VSC+ is only built for Windows, but support for MAC and Linux is plann
 Please note: this project is still under active development, but takes lower priotity than my studies at university. Development might be slow throughout the year.
 
 Upcoming and planned features:
-- GUI (currently VSC+ is a console based application, I am aiming to develop a custom UI for easier use)
+- GUI (currently SoundCheckr is a console based application, I am aiming to develop a custom UI for easier use)
 - Exporting to wav and mp4
 - MAC and LINUX port
 
 ## Macro Values
-VSC+ supports a number of midi macros for interfacing with the audio board. All of the midi macros are received as a program change command.
+SoundCheckr supports a number of midi macros for interfacing with the audio board. All of the midi macros are received as a program change command.
 
 | Action | Midi Command |
 |--------|--------------|
