@@ -6,4 +6,4 @@
  * See LICENSE file for details.
  */
 
-#include "SampleCount.h"
+#include "MemoryTypes.h"

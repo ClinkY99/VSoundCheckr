@@ -1,6 +1,10 @@
-//
-// Created by cline on 2025-03-26.
-//
+/*
+ * This file is part of VSC+
+ * Copyright (C) 2025 Kieran Cline
+ *
+ * Licensed under the GNU General Public License v3.0
+ * See LICENSE file for details.
+ */
 
 #ifndef SAVEFILEDB_H
 #define SAVEFILEDB_H

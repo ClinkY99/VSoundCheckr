@@ -1,8 +1,15 @@
+/*
+ * This file is part of VSC+
+ * Copyright (C) 2025 Kieran Cline
+ *
+ * Licensed under the GNU General Public License v3.0
+ * See LICENSE file for details.
+ */
+
 //#include "Audio/IO/AudioIO.h"
 //#include "Visual/AppBase.h"
 
 //wxIMPLEMENT_APP(MyApp);
-
 
 #include <iostream>
 #include <iterator>
@@ -10,7 +17,6 @@
 
 
 #include "Audio/Dither.h"
-#include "Audio/AudioData/SqliteSampleBlock.h"
 #include "Audio/IO/AudioIO.h"
 #include "Visual/PlaybackHandler.h"
 

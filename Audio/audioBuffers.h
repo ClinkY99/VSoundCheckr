@@ -1,13 +1,16 @@
-//
-// Created by cline on 2025-02-20.
-//
-
+/*
+ * This file is part of VSC+
+ * Copyright (C) 2025 Kieran Cline
+ *
+ * Licensed under the GNU General Public License v3.0
+ * See LICENSE file for details.
+ */
 #ifndef AUDIOBUFFERS_H
 #define AUDIOBUFFERS_H
 
 #include <atomic>
 
-#include "../MemoryManagement/MemoryX.h"
+#include "../MemoryManagement/MemoryTypes.h"
 #include "SampleFormat.h"
 
 //THIS IS A CIRCULAR BUFFER

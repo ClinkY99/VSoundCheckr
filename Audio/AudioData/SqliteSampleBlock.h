@@ -1,6 +1,10 @@
-//
-// Created by cline on 2025-03-09.
-//
+/*
+ * This file is part of VSC+
+ * Copyright (C) 2025 Kieran Cline
+ *
+ * Licensed under the GNU General Public License v3.0
+ * See LICENSE file for details.
+ */
 
 #ifndef SQLITESAMPLEBLOCK_H
 #define SQLITESAMPLEBLOCK_H
@@ -8,7 +12,7 @@
 #include <sqlite3.h>
 
 #include "SampleBlock.h"
-#include "../../MemoryManagement/MemoryX.h"
+#include "../../MemoryManagement/MemoryTypes.h"
 #include "../../Saving/DBConnection.h"
 #include "../IO/AudioIO.h"
 

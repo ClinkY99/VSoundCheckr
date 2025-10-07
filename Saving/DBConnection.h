@@ -1,6 +1,10 @@
-//
-// Created by cline on 2025-03-09.
-//
+/*
+ * This file is part of VSC+
+ * Copyright (C) 2025 Kieran Cline
+ *
+ * Licensed under the GNU General Public License v3.0
+ * See LICENSE file for details.
+ */
 
 #ifndef DBCONNECTION_H
 #define DBCONNECTION_H
@@ -9,9 +13,9 @@
 #include <sqlite3.h>
 #include <thread>
 #include <utility>
+#include <wx/string.h>
 
-#include "../project.h"
-
+using FilePath = wxString;
 
 class DBConnection {
 public:

@@ -1,6 +1,10 @@
-//
-// Created by cline on 2025-03-21.
-//
+/*
+ * This file is part of VSC+
+ * Copyright (C) 2025 Kieran Cline
+ *
+ * Licensed under the GNU General Public License v3.0
+ * See LICENSE file for details.
+ */
 
 #include "PlaybackHandler.h"
 
@@ -24,7 +28,7 @@ PlaybackHandler::~PlaybackHandler() {
 //CMDL IO
 //------------------------------------------------------------------------------------
 void PlaybackHandler::waitForKeyPress() {
-    cout << "Press any key to continue ....." << endl;
+    cout << "<Press any key to continue>" << endl;
     cin.sync();
     cin.get();
 }
@@ -101,7 +105,7 @@ void PlaybackHandler::StartCApp() {
     updateSRates();
 
     clrscr();
-    cout<<"Welcome to the <INSERT NAME HERE> recording software. \n At the moment the ui is purely console based, but we are workign on a physical UI"<<endl;
+    cout<<"Welcome to the VSC+ recording software. \n At the moment the ui is purely console based, but we are working on a physical UI"<<endl;
 
     waitForKeyPress();
 
@@ -1036,10 +1040,10 @@ void PlaybackHandler::midiHandler() {
             case mStopPC:
                 if (playback) {
                     stopPlayback();
-                    cout<<"Finished Recording"<<endl;
+                    cout<<"Finished Playback"<<endl;
                 } else if (recording) {
                     endRecording();
-                    cout<<"Finished Playback"<<endl;
+                    cout<<"Finished Recording"<<endl;
                 } else {
                     loop = false;
                 }

@@ -1,6 +1,10 @@
-//
-// Created by cline on 2025-02-24.
-//
+/*
+ * This file is part of VSC+
+ * Copyright (C) 2025 Kieran Cline
+ *
+ * Licensed under the GNU General Public License v3.0
+ * See LICENSE file for details.
+ */
 
 #include "Dither.h"
 #include <wx/defs.h>
@@ -23,7 +27,7 @@ struct State {
 
 using Ditherer = float (*)(State&, float);
 
-// Defines for sample conversion
+// Definitions for sample conversions
 constexpr auto CONVERT_DIV16 = float(1<<15);
 constexpr auto CONVERT_DIV24 = float(1<<23);
 

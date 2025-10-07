@@ -19,8 +19,8 @@ add_executable(RecordingSoftwareISP main.cpp
         Playback/Track.h
         Audio/audioBuffers.cpp
         Audio/audioBuffers.h
-        MemoryManagement/MemoryX.cpp
-        MemoryManagement/MemoryX.h
+        MemoryManagement/MemoryTypes.cpp
+        MemoryManagement/MemoryTypes.h
         Audio/SampleFormat.h
         Audio/Dither.cpp
         Audio/Dither.h
@@ -34,8 +34,6 @@ add_executable(RecordingSoftwareISP main.cpp
         Playback/Sequences/AudioIOSequences.h
         Audio/SampleCount.cpp
         Audio/SampleCount.h
-        Playback/Sequences/SampleTrack.cpp
-        Playback/Sequences/SampleTrack.h
         Audio/AudioData/Sequence.cpp
         Audio/AudioData/Sequence.h
         Audio/AudioData/SampleBlock.cpp
@@ -44,8 +42,6 @@ add_executable(RecordingSoftwareISP main.cpp
         Audio/AudioData/SqliteSampleBlock.h
         Saving/DBConnection.cpp
         Saving/DBConnection.h
-        project.cpp
-        project.h
         Audio/IO/PlaybackSchedules.cpp
         Audio/IO/PlaybackSchedules.h
         Audio/IO/Resample.cpp
