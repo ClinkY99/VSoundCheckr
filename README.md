@@ -1,4 +1,4 @@
-# VSC+
+# SoundCheckr
 Hello and Welcome VSC+ (Working Title). This software is a **WORK IN PROGRESS** personal project, with the intention of streamlining the virtual soundcheck process.
 Currently VSC+ is only built for Windows, but support for MAC and Linux is planned. VSC+ is licensed under the GNU General Public License v3.0
 
