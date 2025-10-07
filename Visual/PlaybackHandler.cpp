@@ -1,5 +1,5 @@
 /*
- * This file is part of SoundCheckr
+ * This file is part of VSoundCheckr
  * Copyright (C) 2025 Kieran Cline
  *
  * Licensed under the GNU General Public License v3.0
@@ -17,13 +17,6 @@
 #include "../Midi/MidiIO.h"
 
 using namespace std;
-
-PlaybackHandler::~PlaybackHandler() {
-    Pa_Terminate();
-    AudioIO::DeInit();
-    mSaveConn->close();
-}
-
 
 //CMDL IO
 //------------------------------------------------------------------------------------
@@ -102,10 +95,16 @@ void PlaybackHandler::StartCApp() {
     mAudioOutDev = Pa_GetDefaultOutputDevice();
     mNumOutputs = Pa_GetDeviceInfo(mAudioOutDev)->maxOutputChannels;
     mRate = Pa_GetDeviceInfo(mAudioInDev)->defaultSampleRate;
+
+    auto cleanup = finally([&] {
+        mSaveConn->close();
+        Pa_Terminate();
+        AudioIO::DeInit();
+    });
     updateSRates();
 
     clrscr();
-    cout<<"Welcome to the SoundCheckr recording software. \n At the moment the ui is purely console based, but we are working on a physical UI"<<endl;
+    cout<<"Welcome to the VSoundCheckr recording software. \n At the moment the ui is purely console based, but we are working on a physical UI"<<endl;
 
     waitForKeyPress();
 
@@ -647,7 +646,7 @@ std::string PlaybackHandler::buildFileName() {
     mkdir(fileName.c_str());
     fileName += "Unsaved Session ";
     fileName += buf;
-    fileName += ".SCRUnsaved";
+    fileName += ".SCheckrUnsaved";
 
     return fileName;
 }
@@ -677,7 +676,7 @@ void PlaybackHandler::createAudioTempDB() {
 }
 
 void PlaybackHandler::newSave() {
-    wxFileDialog saveFileDialog(nullptr, _("Choose Save Location"), "","", "<insert name> session files (*.SCR) | *.SCR", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    wxFileDialog saveFileDialog(nullptr, _("Choose Save Location"), "","", "VSoundCheckr session files (*.SCheckr) | *.SCheckr", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 
     if (saveFileDialog.ShowModal() == wxID_CANCEL) {
         cout<<"Canceled New Save"<<endl;
@@ -742,12 +741,15 @@ void PlaybackHandler::save() {
     sqlite3_finalize(stmt);
     mUnSaved = false;
 
+    clrscr();
+
     cout<<"Saving complete"<<endl;
+    waitForKeyPress();
 }
 
 void PlaybackHandler::newShow() {
     if (mSaveConn->DB()) {
-        wxFileDialog saveFileDialog(nullptr, _("Choose Save Location"), "","", "<insert name> session files (*.SCR) | *.SCR", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+        wxFileDialog saveFileDialog(nullptr, _("Choose Save Location"), "","", "VSoundCheckr session files (*.SCheckr) | *.SCheckr", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
         if (saveFileDialog.ShowModal() == wxID_CANCEL) {
             cout<<"Canceled New Save"<<endl;
             waitForKeyPress();
@@ -793,7 +795,7 @@ void PlaybackHandler::newShow() {
 
 
 void PlaybackHandler::load(int) {
-    wxFileDialog saveFileDialog(nullptr, _("Choose Session File"), "","", "<insert name> session files (*.SCR) | *.SCR", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    wxFileDialog saveFileDialog(nullptr, _("Choose Session File"), "","", "VSoundCheckr session files (*.SCheckr) | *.SCheckr", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 
     if (saveFileDialog.ShowModal() == wxID_CANCEL) {
         cout<<"Canceled opening Save"<<endl;

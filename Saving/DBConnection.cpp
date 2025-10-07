@@ -1,5 +1,5 @@
 /*
- * This file is part of SoundCheckr
+ * This file is part of VSoundCheckr
  * Copyright (C) 2025 Kieran Cline
  *
  * Licensed under the GNU General Public License v3.0
@@ -39,7 +39,7 @@ DBConnection::DBConnection() {
    mCheckpointDB = nullptr;
 }
 DBConnection::~DBConnection() {
-   assert(mDB == nullptr);
+   //assert(mDB == nullptr);
    if (mDB != nullptr) {
       //LOG, DATABASE NOT CLOSED
    }

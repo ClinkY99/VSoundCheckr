@@ -1,5 +1,5 @@
 /*
- * This file is part of SoundCheckr
+ * This file is part of VSoundCheckr
  * Copyright (C) 2025 Kieran Cline
  *
  * Licensed under the GNU General Public License v3.0
@@ -64,8 +64,6 @@ class PlaybackHandler
     std::shared_ptr<SnapshotHandler> mSnapshotHandler;
 
 public:
-    ~PlaybackHandler();
-
     void StartCApp();
     void newSave();
     void save() override;

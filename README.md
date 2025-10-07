@@ -1,6 +1,6 @@
-# SoundCheckr
-Hello, welcome to SoundCheckr (Working Title). This software is a **WORK IN PROGRESS** personal project, with the intention of streamlining the virtual soundcheck process.
-Currently SoundCheckr is only built for Windows, but support for MAC and Linux is planned. SoundCheckr is licensed under the GNU General Public License v3.0
+# VSoundCheckr
+Hello, welcome to VSoundCheckr (Working Title). This software is a **WORK IN PROGRESS** personal project, with the intention of streamlining the virtual soundcheck process.
+Currently VSoundCheckr is only built for Windows, but support for MAC and Linux is planned. VSoundCheckr is licensed under the GNU General Public License v3.0
 
 *Please note: at this time I will not be accepting contributions to the project due to time constraints. This will likely change in the future*
 
@@ -14,12 +14,18 @@ Currently SoundCheckr is only built for Windows, but support for MAC and Linux i
 *Please note: this project is still under active development, but takes lower priority than my studies at university. Development might be slow throughout the year.*
 
 Upcoming and planned features:
-- GUI (currently SoundCheckr is a console based application, I am aiming to develop a custom UI for easier use)
+- GUI (currently VSoundCheckr is a console based application, I am aiming to develop a custom UI for easier use)
 - Exporting to wav and mp4
 - MAC and LINUX port
 
+## Known Issues
+> [!WARNING]
+> If you exit the program by closing the command prompt window, due to limitations with console based applications the program will not run important cleanup functions. This could lead to a bluescreen on windows pc while using ASIO as well as not properly closing save database leading to potential loss of data.
+> 
+> PLEASE EXIT USING INTERNAL MENU TO AVOID THIS
+
 ## Macro Values
-SoundCheckr supports a number of midi macros for interfacing with the audio board. All of the midi macros are received as a program change command.
+VSoundCheckr supports a number of midi macros for interfacing with the audio board. All of the midi macros are received as a program change command.
 
 | Action | Midi Command |
 |--------|--------------|
@@ -36,7 +42,6 @@ SoundCheckr supports a number of midi macros for interfacing with the audio boar
 This photo shows the setup for the macro which will cause the program to play
 
 <img width="1942" height="1189" alt="image" src="https://github.com/user-attachments/assets/2658a685-7b5a-4922-ab6e-bb747c5654a9" />
-
 
 ## Snapshots
 Snapshots are recorded using control change midi actions. This is the default command fired when a DiGiCo board fires a snapshot. For other boards support is planned for the future.

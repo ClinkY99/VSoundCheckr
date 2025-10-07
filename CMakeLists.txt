@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.30)
-project(RecordingSoftwareISP)
+project(VSoundCheckr)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -10,7 +10,7 @@ set(CMAKE_EXE_LINKER_FLAGS "-static")
 
 add_definitions(-DPA_USE_ASIO=1)
 
-add_executable(RecordingSoftwareISP main.cpp
+add_executable(VSoundCheckr main.cpp
         Audio/IO/AudioIO.cpp
         Audio/IO/AudioIO.h
         Visual/AppBase.cpp
@@ -57,26 +57,26 @@ add_executable(RecordingSoftwareISP main.cpp
 )
 
 find_package(wxWidgets CONFIG REQUIRED)
-target_link_libraries(RecordingSoftwareISP PRIVATE wx::core wx::base)
+target_link_libraries(VSoundCheckr PRIVATE wx::core wx::base)
 
 find_package(portaudio CONFIG REQUIRED)
-target_link_libraries(RecordingSoftwareISP PRIVATE portaudio_static)
+target_link_libraries(VSoundCheckr PRIVATE portaudio_static)
 
 find_package(libremidi CONFIG REQUIRED)
-target_link_libraries(RecordingSoftwareISP PRIVATE libremidi)
+target_link_libraries(VSoundCheckr PRIVATE libremidi)
 
 find_package(unofficial-sqlite3 CONFIG REQUIRED)
-target_link_libraries(RecordingSoftwareISP PRIVATE unofficial::sqlite3::sqlite3)
+target_link_libraries(VSoundCheckr PRIVATE unofficial::sqlite3::sqlite3)
 
 # Add include directories for soxr
-target_include_directories(RecordingSoftwareISP PRIVATE
+target_include_directories(VSoundCheckr PRIVATE
         ${CMAKE_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/include
 )
 
 # Add library directories for soxr
-target_link_directories(RecordingSoftwareISP PRIVATE
+target_link_directories(VSoundCheckr PRIVATE
         ${CMAKE_SOURCE_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib
 )
 
 # Link the soxr library
-target_link_libraries(RecordingSoftwareISP PRIVATE ${CMAKE_SOURCE_DIR}/cmake-build-debug/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib/libsoxr.a)
+target_link_libraries(VSoundCheckr PRIVATE ${CMAKE_SOURCE_DIR}/cmake-build-debug/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/lib/libsoxr.a)
