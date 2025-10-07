@@ -2,6 +2,8 @@
 Hello, welcome to SoundCheckr (Working Title). This software is a **WORK IN PROGRESS** personal project, with the intention of streamlining the virtual soundcheck process.
 Currently SoundCheckr is only built for Windows, but support for MAC and Linux is planned. SoundCheckr is licensed under the GNU General Public License v3.0
 
+*Please note: at this time I will not be accepting contributions to the project due to time constraints. This will likely change in the future*
+
 ### Features
 - Supports multitrack recording and playback
 - Midi interface with audio board to save snapshots during recording, allowing for easy seeking during playback
@@ -9,7 +11,7 @@ Currently SoundCheckr is only built for Windows, but support for MAC and Linux i
 - See roadmap for upcoming and planned features
 
 ## Roadmap
-Please note: this project is still under active development, but takes lower priority than my studies at university. Development might be slow throughout the year.
+*Please note: this project is still under active development, but takes lower priority than my studies at university. Development might be slow throughout the year.*
 
 Upcoming and planned features:
 - GUI (currently SoundCheckr is a console based application, I am aiming to develop a custom UI for easier use)
