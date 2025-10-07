@@ -21,18 +21,30 @@ VSC+ supports a number of midi macros for interfacing with the audio board. All 
 
 | Action | Midi Command |
 |--------|--------------|
-| Play | 0 |
-| Record | 1 |
-| Pause | 2 |
-| End Playback Mode (if not recording or playing back will exit midi mode) | 3 |
-| Jump Forward 15s | 6 |
-| Jump Backward 15s | 7 |
-| Jump Forward 30s | 4 |
-| Jump Backward 30s | 5 |
-| Return to last fired snapshot | 8 |
+| Play | 1 |
+| Record | 2 |
+| Pause | 3 |
+| End Playback Mode (if not recording or playing back will exit midi mode) | 4 |
+| Jump Forward 15s | 7 |
+| Jump Backward 15s | 8 |
+| Jump Forward 30s | 5 |
+| Jump Backward 30s | 6 |
+| Return to last fired snapshot | 9 |
+
+This photo shows the setup for the macro which will cause the program to play
+
+<img width="1942" height="1189" alt="image" src="https://github.com/user-attachments/assets/2658a685-7b5a-4922-ab6e-bb747c5654a9" />
+
 
 ## Snapshots
-Snapshots are recorded using control change midi actions. This is the default command fired when a DiGiCo board fires a snapshot. for other boards support is planned for the future
+Snapshots are recorded using control change midi actions. This is the default command fired when a DiGiCo board fires a snapshot. For other boards support is planned for the future.
+
+By default snapshot 0, with CC command value [16, 0] will be created at time 00:00. The snapshot that you start the recording on should have this midi value.
+
+This photo highlights important areas for setting up midi send via snapshot
+
+<img width="2000" height="1457" alt="image" src="https://github.com/user-attachments/assets/ba970782-04ba-4068-afd7-3715bb44215e" />
+
 
 ## License
 This project is licensed under the terms of the GNU General Public License v3.0 (GPLv3).
