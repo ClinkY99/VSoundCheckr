@@ -1,5 +1,5 @@
 # SoundCheckr
-Hello and Welcome SoundCheckr (Working Title). This software is a **WORK IN PROGRESS** personal project, with the intention of streamlining the virtual soundcheck process.
+Hello, welcome to SoundCheckr (Working Title). This software is a **WORK IN PROGRESS** personal project, with the intention of streamlining the virtual soundcheck process.
 Currently SoundCheckr is only built for Windows, but support for MAC and Linux is planned. SoundCheckr is licensed under the GNU General Public License v3.0
 
 ### Features
@@ -9,7 +9,7 @@ Currently SoundCheckr is only built for Windows, but support for MAC and Linux i
 - See roadmap for upcoming and planned features
 
 ## Roadmap
-Please note: this project is still under active development, but takes lower priotity than my studies at university. Development might be slow throughout the year.
+Please note: this project is still under active development, but takes lower priority than my studies at university. Development might be slow throughout the year.
 
 Upcoming and planned features:
 - GUI (currently SoundCheckr is a console based application, I am aiming to develop a custom UI for easier use)
