@@ -54,6 +54,8 @@ add_executable(VSoundCheckr main.cpp
         Midi/MidiIO.h
         Midi/Snapshots.cpp
         Midi/Snapshots.h
+        Saving/Exporter.cpp
+        Saving/Exporter.h
         Icon/app.o
 )
 
