@@ -9,13 +9,14 @@ Currently VSoundCheckr is only built for Windows, but support for MAC and Linux 
 - Midi interface with audio board to save snapshots during recording, allowing for easy seeking during playback
 - Midi interface with audio board to allow macro's to control the software (See below for macro values)
 - See roadmap for upcoming and planned features
+- Ability to export recordings to wav stems for external processing
 
 ## Roadmap
 *Please note: this project is still under active development, but takes lower priority than my studies at university. Development might be slow throughout the year.*
 
 Upcoming and planned features:
 - GUI (currently VSoundCheckr is a console based application, I am aiming to develop a custom UI for easier use)
-- Exporting to wav and mp4
+- Exporting to mp4
 - MAC and LINUX port
 
 ## Known Issues
@@ -52,6 +53,20 @@ This photo highlights important areas for setting up midi send via snapshot
 
 <img width="2000" height="1457" alt="image" src="https://github.com/user-attachments/assets/ba970782-04ba-4068-afd7-3715bb44215e" />
 
+## Exporting
+_Currently exporting only allows for exporting of wav files, but mp4 is planned for the future_
+
+_Also this ui is kinda bad so will be updated in the future_
+
+Allows for the exporting of recorded tracks. Exporting can be used in 2 modes:
+- Timestamps
+  - Allows for exporting tracks between a range of times (ie. 55:30-56:20 or 1:50:20-2:15:00)
+- Snapshots
+  - Allows for exporting tracks between a range of snapshots (ie. snapshot #s 5-8)
+
+ To specify which tracks to export, you can input ranges or individual tracks seperated by commas. (ie 1,5-9,3 is valid)
+
+ ENJOY!!!!
 
 ## License
 This project is licensed under the terms of the GNU General Public License v3.0 (GPLv3).
