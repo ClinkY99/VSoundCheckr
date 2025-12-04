@@ -15,6 +15,7 @@
 
 #include "AppBase.h"
 #include "../Midi/MidiIO.h"
+#include "../Saving/Exporter.h"
 
 using namespace std;
 
@@ -123,6 +124,7 @@ void PlaybackHandler::MenuAPP() {
               "4 Save \n"
               "5 Snapshots \n"
               "6 Midi \n"
+              "7 Export \n"
               "0 Exit \n"
               ">>";
 
@@ -146,6 +148,9 @@ void PlaybackHandler::MenuAPP() {
             } break;
             case 6: {
                 midiMenu();
+            } break;
+            case 7: {
+               auto exporter = Exporter(&mTracks, mSnapshotHandler->getSnapshots());
             } break;
             case 0: {
                 if (mUnSaved) {
@@ -839,7 +844,7 @@ void PlaybackHandler::load(int) {
     mTracks.clear();
     mTracks.resize(numTracks);
     for (int i = 0; i < numTracks; ++i) {
-        mTracks[i] = make_shared<Track>(mRate, floatSample);
+        mTracks[i] = make_shared<Track>(mRate, floatSample, i+1);
         mTracks[i]->mSaveConn = mSaveConn;
         mTracks[i]->load(i+1);
     }
@@ -1385,8 +1390,8 @@ void PlaybackHandler::ViewTracks() {
 }
 
 bool PlaybackHandler::newTrack() {
-    auto newTrack = std::make_shared<Track>(mRate, floatSample);
     auto newTrackNdx = mTracks.size();
+    auto newTrack = std::make_shared<Track>(mRate, floatSample, newTrackNdx+1);
     mTracks.resize(mTracks.size()+1);
     mTracks[newTrackNdx] = newTrack;
 

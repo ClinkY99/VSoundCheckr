@@ -35,9 +35,11 @@ class Track
 
     std::vector<std::unique_ptr<Sequence>> mSequences;
 
+    int mTrackNum;
+
 public:
-    Track(double rate, SampleFormat format)
-        :mRate(rate), mFormat(format), mSolo(false), mMute(false) {
+    Track(double rate, SampleFormat format, int trackNum)
+        :mRate(rate), mFormat(format), mSolo(false), mMute(false), mTrackNum(trackNum) {
         updateSequences();
     }
 
@@ -75,6 +77,8 @@ public:
 
     bool isSolo() const override {return mSolo.load(std::memory_order_relaxed);}
     bool isMute() const override {return mMute.load(std::memory_order_relaxed);}
+
+    int getTrackNum() const {return mTrackNum;}
 
 private:
     size_t GetGreatestAppendBufferLen() const;

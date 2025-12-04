@@ -10,39 +10,47 @@
 
 enum exportFormat {
     WavFormat = 0,
-    Mp3Format = 1
+    //Mp3Format = 1
 };
 
-struct wavHeader {
-    char chunkID[4] = {'R', 'I', 'F', 'F'};
-    uint32_t chunkSize;
-    char format[4] = {'W', 'A', 'V', 'E'};
-    char subchunk1ID[4] = {'f', 'm', 't', ' '};
-    uint32_t subchunk1Size = 16; // PCM format
-    uint16_t audioFormat = 1;   // PCM
-    uint16_t numChannels;   // Mono
-    uint32_t sampleRate = 44100;
-    uint32_t byteRate;
-    uint16_t blockAlign;
-    uint16_t bitsPerSample = 16;
-    char subchunk2ID[4] = {'d', 'a', 't', 'a'};
-    uint32_t subchunk2Size;
-
-};
-
-class Exporter {
+class Exporter
+{
     exportFormat mFormat;
 
     //Audio Data
     Tracks mTracks;
     Snapshots mSnapshots;
 
+    size_t mBlockSize = 1048576;
+
+    size_t mSamplesPerBlock;
+
 public:
     Exporter()
         : mFormat() {
     }
 
-    Exporter(const Tracks* tracks, const Snapshots *snapshots)
-        :mFormat(), mTracks(*tracks), mSnapshots(*snapshots){
+    Exporter(const Tracks* tracks, Snapshots snapshots)
+        :mFormat(), mTracks(*tracks), mSnapshots(snapshots){
         showExportUI();
-    };
+    }
+
+private:
+    void showExportUI();
+
+    void exportSnapshotsUI();
+    void exportTimestampsUI();
+
+    Tracks getTracksToExport();
+
+    size_t parseTime(std::string time);
+
+    std::pair<int,int> get2Ints();
+    std::pair<double, double> get2Times();
+
+    void exportWavSamples(FilePath path, Tracks tracks, sampleCount startLocation, sampleCount endLocation);
+    void exportWavSnapshot(FilePath path, Tracks tracks, int startSnapshot, int endSnapshot);
+
+    void exportWav(FilePath path, std::shared_ptr<Track> track, sampleCount startLocation, sampleCount endLocation);
+};
+#endif
