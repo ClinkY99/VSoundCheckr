@@ -1077,11 +1077,3 @@ bool AudioIO::ProcessPlaybackSlices(size_t avail) {
 
     return progress;
 }
-
-
-
-
-
-
-
-

@@ -102,6 +102,11 @@ public:
     void changeAudioAPI();
     void changeSRate();
 
+    //CMDL IO stuff
+    static void clrscr();
+    static void waitForKeyPress();
+    bool YNConfirm();
+
 private:
 
     void MenuAPP();
@@ -137,10 +142,6 @@ private:
     void getSupportedRates (std::vector<size_t>& rates);
     void updateSRates();
 
-    //CMDL IO stuff
-    void waitForKeyPress();
-    bool YNConfirm();
-    void clrscr();
     int inputTrackNum();
 };
 

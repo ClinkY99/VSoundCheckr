@@ -54,7 +54,11 @@ add_executable(VSoundCheckr main.cpp
         Midi/MidiIO.h
         Midi/Snapshots.cpp
         Midi/Snapshots.h
+        Saving/Exporter.cpp
+        Saving/Exporter.h
         Icon/app.o
+        "Saving/File Types/WavFile.cpp"
+        "Saving/File Types/WavFile.h"
 )
 
 find_package(wxWidgets CONFIG REQUIRED)
