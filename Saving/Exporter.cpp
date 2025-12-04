@@ -26,35 +26,45 @@ string makeTime(size_t seconds) {
 
 void Exporter::showExportUI()
 {
-    int input;
-    bool loop = true;
+    if (mTracks.size() > 0) {
+        if (mTracks[0]->getLengthS()>0) {
+            int input;
+            bool loop = true;
 
-    while (loop)
-    {
-        PlaybackHandler::clrscr();
-        cout<< "EXPORT MENU:\n"
-               "1 export wav (timestamp mode) \n"
-               "2 export wav (snapshot mode) \n"
-               "0 return\n"
-               ">> ";
+            while (loop)
+            {
+                PlaybackHandler::clrscr();
+                cout<< "EXPORT MENU:\n"
+                       "1 export wav (timestamp mode) \n"
+                       "2 export wav (snapshot mode) \n"
+                       "0 return\n"
+                       ">> ";
 
-        cin>>input;
-        switch (input)
-        {
-            case 1: {
-                exportTimestampsUI();
-            } break;
-            case 2:{
-                exportSnapshotsUI();
-            } break;
-            case 0 :{
-                loop = false;
-            }break;
-            default:{
-                cout<<"Not supported ATM"<<endl;
-                PlaybackHandler::waitForKeyPress();
+                cin>>input;
+                switch (input)
+                {
+                    case 1: {
+                        exportTimestampsUI();
+                    } break;
+                    case 2:{
+                        exportSnapshotsUI();
+                    } break;
+                    case 0 :{
+                        loop = false;
+                    }break;
+                    default:{
+                        cout<<"Not supported ATM"<<endl;
+                        PlaybackHandler::waitForKeyPress();
+                    }
+                }
             }
+        } else {
+            cout<<"You have no recorded audio to export"<<endl;
+            PlaybackHandler::waitForKeyPress();
         }
+    } else {
+        cout<<"You have no available tracks to export from"<<endl;
+        PlaybackHandler::waitForKeyPress();
     }
 }
 
@@ -62,73 +72,95 @@ Tracks Exporter::getTracksToExport(){
     Tracks tracksToExport;
 
     PlaybackHandler::clrscr();
-    cout<<"Which tracks do you want to export (-1 for all): \n>> ";
+    cout<<"Which tracks do you want to export(1-"<<to_string(mTracks.size())<<"):\nenter -1 for all tracks\n>> ";
 
-     auto range = get2Ints();
+    string input;
+    cin >> input;
 
-    if (range.first != -1)
-    {
-        int num1 = max(range.first,0);
-        int num2 = min(range.second,(int) mTracks.size()-1);
-
-        for (int i = num1; i < num2+1; ++i)
-        {
-            tracksToExport.push_back(mTracks[i]);
-        }
-    } else
-    {
-        tracksToExport = mTracks;
+    stringstream ss(input);
+    string item;
+    vector<string> tokens;
+    while (getline(ss, item, ',')) {
+        tokens.push_back(item);
     }
+
+    for (auto item : tokens) {
+        auto range = get2Ints(item);
+
+        if (range.first != -1)
+        {
+            int num1 = max(range.first-1,0);
+            int num2 = min(range.second-1,(int) mTracks.size()-1);
+
+            for (int i = num1; i < num2+1; ++i)
+            {
+                tracksToExport.push_back(mTracks[i]);
+            }
+        } else
+        {
+            tracksToExport = mTracks;
+        }
+    }
+
     return tracksToExport;
 }
 
 void Exporter::exportSnapshotsUI()
 {
-    Tracks tracksToExport = getTracksToExport();
+    if (mSnapshots.size() > 0) {
+        Tracks tracksToExport = getTracksToExport();
 
-    PlaybackHandler::clrscr();
+        PlaybackHandler::clrscr();
 
-    cout<<"Please enter the range of snapshots that you would like to export (valid input from 1-"<< (const char) mSnapshots.size() << "):\nenter -1 for full track or enter a single number for one snapshot \n>> ";
+        cout<<"Please enter the range of snapshots that you would like to export (valid input from 1-"<< mSnapshots.size() << "):\nenter -1 for full track or enter a single number for one snapshot \n>> ";
 
-    auto snapshotRange = get2Ints();
+        string input;
+        cin>>input;
+        auto snapshotRange = get2Ints(input);
 
-    sampleCount startLocation,endLocation;
-    if (snapshotRange.first != -1)
-    {
-        int num1 = max(snapshotRange.first-1,0);
-        int num2 = min(snapshotRange.second,(int) mSnapshots.size());
-
-        startLocation = sampleCount(mSnapshots[num1].timestamp*tracksToExport[0]->GetRate());
-        if (num2 == mSnapshots.size())
+        sampleCount startLocation,endLocation;
+        if (snapshotRange.first != -1)
         {
-            endLocation  = sampleCount(tracksToExport[0]->getLengthS()*tracksToExport[0]->GetRate());
+            int num1 = max(snapshotRange.first-1,0);
+            int num2 = min(snapshotRange.second,(int) mSnapshots.size());
+
+            startLocation = sampleCount(mSnapshots[num1].timestamp*tracksToExport[0]->GetRate());
+            if (num2 == mSnapshots.size())
+            {
+                endLocation  = sampleCount(tracksToExport[0]->getLengthS()*tracksToExport[0]->GetRate());
+            } else
+            {
+                endLocation = sampleCount(mSnapshots[num2].timestamp*tracksToExport[0]->GetRate());
+            }
+        }else {
+            startLocation = 0;
+            endLocation = sampleCount(tracksToExport[0]->getLengthS()*tracksToExport[0]->GetRate());
+        }
+
+        FilePath path;
+
+        wxFileDialog exportFileDialog(nullptr, _("Choose Export Location"), "","", "Wav file (*.wav) | *.wav", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+
+        if (exportFileDialog.ShowModal() == wxID_CANCEL) {
+            cout<<"Canceled Export"<<endl;
+            PlaybackHandler::waitForKeyPress();
+            return;
+        }
+
+        if (tracksToExport.size() > 1)
+        {
+            path = exportFileDialog.GetPath();
+            path.erase(path.size()-4);
         } else
         {
-            endLocation = sampleCount(mSnapshots[num2].timestamp*tracksToExport[0]->GetRate());
+            path = exportFileDialog.GetPath();
         }
-    }
 
-    FilePath path;
-
-    wxFileDialog exportFileDialog(nullptr, _("Choose Export Location"), "","", "Wav file (*.wav) | *.wav", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-
-    if (exportFileDialog.ShowModal() == wxID_CANCEL) {
-        cout<<"Canceled Export"<<endl;
+        exportWavSamples(path, tracksToExport, startLocation, endLocation);
+    } else {
+        cout<<"You have no snapshots to export with"<<endl;
         PlaybackHandler::waitForKeyPress();
-        return;
     }
-
-    if (tracksToExport.size() > 1)
-    {
-        path = exportFileDialog.GetPath();
-        path.erase(path.size()-4);
-    } else
-    {
-        path = exportFileDialog.GetPath();
-    }
-
-    exportWavSamples(path, tracksToExport, startLocation, endLocation);
-
 }
 
 void Exporter::exportTimestampsUI()
@@ -170,13 +202,10 @@ void Exporter::exportTimestampsUI()
     exportWavSamples(path, tracksToExport, startLocation, endLocation);
 }
 
-std::pair<int, int> Exporter::get2Ints()
+std::pair<int, int> Exporter::get2Ints(std::string input)
 {
-    string input;
     int num1, num2;
     char dash = '\0';
-
-    cin>>input;
 
     stringstream ss(input);
 
@@ -247,7 +276,7 @@ void Exporter::exportWavSamples(FilePath path, Tracks tracks, sampleCount startL
         for (auto track : tracks)
         {
             FilePath newPath = path+" - ";
-            newPath += track->getTrackNum();
+            newPath += to_string(track->getTrackNum());
             newPath += ".wav";
 
             exportWav(newPath, track, startLocation, endLocation);

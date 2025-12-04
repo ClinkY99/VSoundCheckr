@@ -1122,7 +1122,7 @@ void PlaybackHandler::viewSnapshots() {
     if (snapshots.size() >0) {
         cout<<"snapshots: "<<endl;
         for (auto snapshot: snapshots) {
-            cout<<snapshot.number<<" - "<<snapshot.name<<"     "<<makeTime(snapshot.timestamp)<<endl;
+            cout<<snapshot.number+1<<" - "<<snapshot.name<<"     "<<makeTime(snapshot.timestamp)<<endl;
         }
     } else {
         cout<<"no created snapshots"<<endl;
@@ -1136,12 +1136,12 @@ void PlaybackHandler::changeSnapshotsName() {
         cout<<"Input the snapshot number: \n>>";
         cin>>snapshotNum;
 
-        if (snapshotNum<snapshotsSize) {
+        if (snapshotNum<=snapshotsSize && snapshotNum >= 1) {
             string name;
             cout<<"Input the name of the new snapshot: \n>>";
             cin>>name;
 
-            mSnapshotHandler->assignName(name, snapshotNum);
+            mSnapshotHandler->assignName(name, snapshotNum-1);
         } else {
             cout<<"Snapshot Num Out of range"<<endl;
         }
@@ -1197,20 +1197,24 @@ void PlaybackHandler::changeAudioInDev() {
         }
         cout<<i+1<<"   "<<dev->name<<endl;
     }
-
+    cout<<"   -1   cancel"<<endl;
     cout<<">> ";
 
     int newDevNdx;
     cin>>newDevNdx;
     newDevNdx--;
-    if (newDevNdx < inDevs.size() && newDevNdx>=0) {
-        mAudioInDev = inDevs[newDevNdx];
-        cout<< "Audio Device has been changed to "<<Pa_GetDeviceInfo(mAudioInDev)->name<<endl;
-        mNumInputs = Pa_GetDeviceInfo(mAudioInDev)->maxInputChannels;
-        propagateDevChange();
-        sRateDefault();
+    if (newDevNdx >=0) {
+        if (newDevNdx < inDevs.size() && newDevNdx>=0) {
+            mAudioInDev = inDevs[newDevNdx];
+            cout<< "Audio Device has been changed to "<<Pa_GetDeviceInfo(mAudioInDev)->name<<endl;
+            mNumInputs = Pa_GetDeviceInfo(mAudioInDev)->maxInputChannels;
+            propagateDevChange();
+            sRateDefault();
+        } else {
+            cout<< "Error setting audio device "<< newDevNdx <<" is out of range"<<endl;
+        }
     } else {
-        cout<< "Error setting audio device "<< newDevNdx <<" is out of range"<<endl;
+        cout<<"canceled changing audio input device"<<endl;
     }
 
     waitForKeyPress();
@@ -1238,20 +1242,24 @@ void PlaybackHandler::changeAudioOutDev() {
         }
         cout<<i+1<<"   "<<dev->name<<endl;
     }
-
+    cout<<"   -1   cancel"<<endl;
     cout<<">> ";
 
     int newDevNdx;
     cin>>newDevNdx;
     newDevNdx--;
-    if (newDevNdx < outDevs.size() && newDevNdx>=0) {
-        mAudioOutDev = outDevs[newDevNdx];
-        mNumOutputs = Pa_GetDeviceInfo(mAudioOutDev)->maxOutputChannels;
-        cout<< "Audio Device has been changed to "<<Pa_GetDeviceInfo(mAudioOutDev)->name<<endl;
-        propagateDevChange();
-        sRateDefault();
+    if (newDevNdx >= 0) {
+        if (newDevNdx < outDevs.size() && newDevNdx>=0) {
+            mAudioOutDev = outDevs[newDevNdx];
+            mNumOutputs = Pa_GetDeviceInfo(mAudioOutDev)->maxOutputChannels;
+            cout<< "Audio Device has been changed to "<<Pa_GetDeviceInfo(mAudioOutDev)->name<<endl;
+            propagateDevChange();
+            sRateDefault();
+        } else {
+            cout<< "Error setting audio device "<< newDevNdx <<" is out of range"<<endl;
+        }
     } else {
-        cout<< "Error setting audio device "<< newDevNdx <<" is out of range"<<endl;
+        cout<<"canceled setting audio output device"<<endl;
     }
 
     waitForKeyPress();
@@ -1272,18 +1280,23 @@ void PlaybackHandler::changeAudioAPI() {
         }
         cout<<i+1<<"   "<<api->name<<endl;
     }
+    cout<<"   -1   cancel"<<endl;
     cout<<">>";
 
     int newDevNdx;
     cin>>newDevNdx;
     newDevNdx--;
-    if (newDevNdx < Pa_GetDeviceCount() && newDevNdx>=0) {
-        mHostApi = newDevNdx;
-        cout<< "Audio API has been changed to "<<Pa_GetHostApiInfo(mHostApi)->name<<endl;
-        propagateDevChange();
-        sRateDefault();
+    if (newDevNdx>=0) {
+        if (newDevNdx < Pa_GetDeviceCount() && newDevNdx>=0) {
+            mHostApi = newDevNdx;
+            cout<< "Audio API has been changed to "<<Pa_GetHostApiInfo(mHostApi)->name<<endl;
+            propagateDevChange();
+            sRateDefault();
+        } else {
+            cout<< "Error setting audio API, "<< newDevNdx <<" is out of range"<<endl;
+        }
     } else {
-        cout<< "Error setting audio API, "<< newDevNdx <<" is out of range"<<endl;
+        cout<<"canceled setting audio API"<<endl;
     }
 
     waitForKeyPress();
@@ -1311,18 +1324,21 @@ void PlaybackHandler::changeSRate() {
         }
         cout<<i+1<< "   " <<rate<<endl;
     }
-
+    cout<<"   -1   cancel"<<endl;
     cout<<">>";
     int rateNdx;
     cin>>rateNdx;
     rateNdx--;
-
-    if (rateNdx < supportedRates.size()) {
-        mRate = supportedRates[rateNdx];
-        cout<<"Sample rate has been set to "<<supportedRates[rateNdx]<<endl;
-        updateSRates();
+    if (rateNdx>=0) {
+        if (rateNdx < supportedRates.size()) {
+            mRate = supportedRates[rateNdx];
+            cout<<"Sample rate has been set to "<<supportedRates[rateNdx]<<endl;
+            updateSRates();
+        } else {
+            cout<< "Error setting SRate " <<rateNdx<< " is out of range";
+        }
     } else {
-        cout<< "Error setting SRate " <<rateNdx<< " is out of range";
+        cout<<"canceled setting sample Rate"<<endl;
     }
 
     waitForKeyPress();

@@ -45,7 +45,7 @@ private:
 
     size_t parseTime(std::string time);
 
-    std::pair<int,int> get2Ints();
+    std::pair<int,int> get2Ints(std::string input);
     std::pair<double, double> get2Times();
 
     void exportWavSamples(FilePath path, Tracks tracks, sampleCount startLocation, sampleCount endLocation);
