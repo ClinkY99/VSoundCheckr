@@ -18,6 +18,7 @@ Upcoming and planned features:
 - GUI (currently VSoundCheckr is a console based application, I am aiming to develop a custom UI for easier use)
 - Exporting to mp4
 - MAC and LINUX port
+- OSC control for audio boards without MIDI connection
 
 ## Known Issues
 > [!WARNING]
